@@ -3,7 +3,7 @@ import ta
 from functools import reduce
 import numpy as np
 from sklearn import linear_model
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 from genetic_selection import GeneticSelectionCV
 
 
@@ -53,12 +53,12 @@ class DatasetBuilder:
 		#variation.fillna(inplace = True, value=0)
 		y = []
 		for v in variation:
-			if v > threshold_up: # if price will rise tomorrow, we buy
-				y.append('B')
-			elif v < threshold_down: # if price will drop tomorrow, we sell
-				y.append('S')
-			else: # by default we hodl
-				y.append('H')
+			if v > threshold_up: # if price will rise tomorrow, we buy (1)
+				y.append(1)
+			elif v < threshold_down: # if price will drop tomorrow, we sell (2)
+				y.append(2)
+			else: # by default we hodl (0)
+				y.append(0)
 		#shaped = np.reshape(values, (-1, 1))
 		#scaled = scaler.fit_transform(shaped)
 		input['y'] = y
