@@ -146,18 +146,16 @@ if __name__ == '__main__':
 	main = db.add_blockchain_data(main, 'BTC', 'data/coinmetrics.io/btc.csv')
 	main = db.add_ta_features(main, 'BTC')
 	# Determine target classes
-	db.add_y(main, 'BTC', 1, 0.01, 0.01) # use BTC price one day ahead, buy if
-	main.to_csv('data/result/btc_all.csv', sep=',', encoding='utf-8', index=False)
+	#main.to_csv('data/result/btc_all.csv', sep=',', encoding='utf-8', index=False)
 	# Scale dataset (all values must be in the same range for genetic reduction)
 	scaled = db.scale(main, exclude=['Date','y','y_var'])
-	scaled.to_csv('data/result/btc_all_scaled.csv', sep=',', encoding='utf-8', index=False)
+	#scaled.to_csv('data/result/btc_all_scaled.csv', sep=',', encoding='utf-8', index=False)
 	rolled = scaled
-	for col in scaled.columns.difference(['Date','y','y_var']):
+	for col in ['BTC']:#scaled.columns.difference(['Date','y','y_var']):
 		rolled = db.add_lookbehind(rolled, col, 7)
+	db.add_y(main, 'BTC', 1, -0.015, 0.015)  # use BTC price one day ahead
 	rolled.to_csv('data/result/btc_rolled.csv', sep=',', encoding='utf-8', index=False)
-	if False:
-		# Select features using genetic search
-		sel_features = db.select_features_genetic(scaled, ['Date','y','y_var'])
-		# Save scaled dataset
-		reduced = scaled.drop(scaled.columns.difference(['Date','y','y_var']+sel_features), 1)
-		reduced.to_csv('data/result/btc_ohlcv_reduced.csv', sep=',', encoding='utf-8', index=False)
+	# Select features using genetic search
+	# sel_features = db.select_features_genetic(scaled, ['Date','y','y_var'])
+	# reduced = scaled.drop(scaled.columns.difference(['Date','y','y_var']+sel_features), 1)
+	# reduced.to_csv('data/result/btc_ohlcv_reduced.csv', sep=',', encoding='utf-8', index=False)
