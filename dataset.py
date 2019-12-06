@@ -61,10 +61,18 @@ class DatasetBuilder:
 				y.append(0)
 		#shaped = np.reshape(values, (-1, 1))
 		#scaled = scaler.fit_transform(shaped)
+
 		input['y'] = y
 		input['y_var'] = variation
 
 		return input
+
+	def add_lookbehind(self, df, column, length):
+		if not column in df.columns:
+			raise ('Column does not exist!')
+		for i in range(length):
+			df[column+'-'+str(i+1)] = np.roll(df[column].values, -(i+1))
+		return df
 
 	def _shape(self, values, range=(0,1)):
 		scaler = MinMaxScaler(feature_range=range)
@@ -143,6 +151,10 @@ if __name__ == '__main__':
 	# Scale dataset (all values must be in the same range for genetic reduction)
 	scaled = db.scale(main, exclude=['Date','y','y_var'])
 	scaled.to_csv('data/result/btc_all_scaled.csv', sep=',', encoding='utf-8', index=False)
+	rolled = scaled
+	for col in scaled.columns.difference(['Date','y','y_var']):
+		rolled = db.add_lookbehind(rolled, col, 7)
+	rolled.to_csv('data/result/btc_rolled.csv', sep=',', encoding='utf-8', index=False)
 	if False:
 		# Select features using genetic search
 		sel_features = db.select_features_genetic(scaled, ['Date','y','y_var'])
