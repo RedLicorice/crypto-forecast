@@ -143,8 +143,9 @@ if __name__ == '__main__':
 	# Scale dataset (all values must be in the same range for genetic reduction)
 	scaled = db.scale(main, exclude=['Date','y','y_var'])
 	scaled.to_csv('data/result/btc_all_scaled.csv', sep=',', encoding='utf-8', index=False)
-	# Select features using genetic search
-	sel_features = db.select_features_genetic(scaled, ['Date','y','y_var'])
-	# Save scaled dataset
-	reduced = scaled.drop(scaled.columns.difference(['Date','y','y_var']+sel_features), 1)
-	reduced.to_csv('data/result/btc_ohlcv_reduced.csv', sep=',', encoding='utf-8', index=False)
+	if False:
+		# Select features using genetic search
+		sel_features = db.select_features_genetic(scaled, ['Date','y','y_var'])
+		# Save scaled dataset
+		reduced = scaled.drop(scaled.columns.difference(['Date','y','y_var']+sel_features), 1)
+		reduced.to_csv('data/result/btc_ohlcv_reduced.csv', sep=',', encoding='utf-8', index=False)

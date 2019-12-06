@@ -17,10 +17,10 @@ class Predictor:
 		pass
 
 	def load_dataset(self, df, index, result, exclude = None):
-		# We want to split the dataset in train and test data (50%) - returns dataframes since 0.16
+		# We want to split the dataset in train and test data
 		nrows = df.shape[0]
-		ntest = ceil(nrows / 2)
-		test, train = df.head(ntest), df.tail(ntest)
+		ntrain = ceil(nrows * 0.7)
+		test, train = df.tail(ntrain), df.head(nrows - ntrain)
 		print("Training set")
 		print(train.head())
 		print("Test set")
@@ -33,15 +33,18 @@ class Predictor:
 
 	def _get_xy(self, df, index, result, exclude = None):
 		# Prepare Y
+		# OneHot encode Y to get a NxM matrix where M is number of classes
 		y = to_categorical(df[result].values, num_classes=3)
 		# Prepare X
+		# Drop index, result and any additional columns
 		_excl = [index, result] + (exclude if exclude else [])
 		features = df.drop(columns=exclude)
+		# Make sure all input is numeric
 		for col in features.columns:
 			features[col] = pd.to_numeric(features[col], errors='coerce')
+		# Fill NaN values
 		features.fillna(value=0, inplace=True)
-		X = features.values
-		return X, y
+		return features.values, y # X, y
 
 	def compile_lstm_model(self):
 		if self.trainX is None:
@@ -55,7 +58,7 @@ class Predictor:
 	def fit(self):
 		if self.model is None:
 			raise RuntimeError("No model compiled!")
-		self.model.fit(self.trainX, self.trainY, epochs=100, batch_size=24, verbose=1)
+		self.model.fit(self.trainX, self.trainY, epochs=100, batch_size=32, verbose=1)
 
 	def train(self):
 		if not self.model:
@@ -79,9 +82,9 @@ if __name__ == '__main__':
 	p.load_dataset(df, 'Date', 'y', ['y_var'])
 	p.compile_lstm_model()
 	p.fit()
-	train_result = p.train()
+	# train_result = p.train()
 	#test_result = p.test()
-	print(train_result)
+	# print(train_result)
 	#print(test_result)
 	p.evaluate()
 	print("Done")
