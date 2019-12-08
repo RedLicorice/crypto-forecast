@@ -1,6 +1,6 @@
 import pandas as pd
 from keras.models import Sequential
-from keras.layers import LSTM
+from keras.layers import LSTM, Embedding
 from keras.layers.core import Dense, Dropout
 from keras.utils import to_categorical
 from keras.regularizers import L1L2
@@ -37,9 +37,9 @@ class Predictor:
 		nrows = df.shape[0]
 		ntrain = ceil(nrows * ratio)
 		test, train = df.tail(nrows-ntrain), df.head(ntrain)
-		print("Training set")
+		print("Training set size:", train.shape[0])
 		print(train.head())
-		print("Test set")
+		print("Test set size:", test.shape[0])
 		print(test.head())
 		self.load_test(test, index, res, exclude)
 		self.load_train(train, index, res, exclude)
@@ -55,7 +55,7 @@ class Predictor:
 		self.train = df
 
 	def print_unique_ratio(self, label, arr):
-		total = max(1,arr.shape[0])
+		total = max(1,len(arr))
 		unique, counts = np.unique(arr, return_counts=True)
 		for cls,cnt in zip(unique,counts):
 			print("{} (class {}): count {} pct {}%".format(label, cls, cnt, cnt*100/total))
@@ -92,8 +92,9 @@ class Predictor:
 
 
 class SVCPredictor(Predictor):
-	def compile(self):
-		self.model = SVC(kernel='rbf')
+	def compile(self, C=1.5):
+		# Previously only had kernel = 'rbf
+		self.model = SVC(kernel='poly', C=C, degree=30, break_ties=True)
 
 	def fit(self):
 		self.model.fit(self.trainX, self.trainY)
@@ -191,7 +192,7 @@ class LogRegPredictor(Predictor):
 
 	def evaluate(self):
 		scores = self.model.evaluate(self.testX, self.testY, verbose=0)
-		print("Accuracy: {}".format(scores[1]))
+		print("Accuracy: {}%".format(scores[1]*100))
 		y_pred = self.predict()
 		pf = pd.DataFrame.from_dict({
 			'predicted': from_categorical(y_pred),
@@ -212,21 +213,23 @@ class LSTMPredictor(Predictor):
 		self.trainX = self.trainX.reshape((self.trainX.shape[0], 1, self.trainX.shape[1]))
 		self.testX = self.testX.reshape((self.testX.shape[0], 1, self.testX.shape[1]))
 		self.model = Sequential()
+		#self.model.add(Embedding(self.trainX.shape[1], output_dim=256))
 		self.model.add(LSTM(50, input_shape=(1, self.trainX.shape[2])))
 		self.model.add(Dropout(0.2))
 		self.model.add(Dense(3)) # Should match number of categories
-		self.model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+		self.model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy','mse'])
 		#self.model.compile(loss='mse', optimizer='adam', metrics=['accuracy'])
 
 	def fit(self):
 		if self.model is None:
 			raise RuntimeError("No model compiled!")
-		self.model.fit(self.trainX, self.trainY, epochs=300, batch_size=32, verbose=1)
+		self.model.fit(self.trainX, self.trainY, epochs=100, batch_size=32, verbose=0)
 
 	def evaluate(self):
 		scores = self.model.evaluate(self.testX, self.testY, verbose=0)
-		print("Accuracy: {}".format(scores[1]))
+		print("Accuracy: {}% MSE: {}".format(scores[1]*100, scores[2]))
 		y_pred = self.predict()
+		self.print_unique_ratio("predY", from_categorical(y_pred))
 		pf = pd.DataFrame.from_dict({
 			'predicted': from_categorical(y_pred),
 			'expected': from_categorical(self.testY)
@@ -242,7 +245,7 @@ if __name__ == '__main__':
 	p = LSTMPredictor()
 	df = pd.read_csv("data/result/dataset.csv", sep=',', encoding='utf-8', index_col='Date')
 	input = df.loc['2011-01-01':'2013-01-01']
-	p.load_dataset(input, 'Date', 'y', 0.7)
+	p.load_dataset(input, 'Date', 'y', 0.5)
 	p.compile()
 	p.fit()
 	# train_result = p.train()
