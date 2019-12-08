@@ -20,6 +20,7 @@ def from_categorical(encoded):
 		res.append(decoded)
 	return res
 
+
 class Predictor:
 	dataset = None
 	model = None
@@ -58,12 +59,12 @@ class Predictor:
 		# Prepare X
 		# Drop index, result and any additional columns
 		_excl = [index, res] + (exclude if exclude else [])
-		features = df.drop(columns=exclude)
+		features = df.drop(columns=exclude) if exclude != None else df
 		# Make sure all input is numeric
 		#for col in features.columns:
 		#	features[col] = pd.to_numeric(features[col], errors='coerce')
 		# Fill NaN values
-		features.fillna(value=0, inplace=True)
+		#features.fillna(value=0, inplace=True)
 		return features.values, y # X, y
 
 	def compile(self):
@@ -82,7 +83,7 @@ class Predictor:
 		return testPredict
 
 
-class SVMPredictor(Predictor):
+class SVCPredictor(Predictor):
 	def compile(self):
 		self.model = SVC(kernel='rbf')
 
@@ -99,7 +100,8 @@ class SVMPredictor(Predictor):
 			'expected': self.testY
 		})
 		pf.index = self.test.index.values
-		pf.to_csv('svm_pred.csv', index_label='Date')
+		pf.to_csv('svc_pred.csv', index_label='Date')
+
 
 class SVRPredictor(Predictor):
 	def compile(self):
@@ -118,7 +120,8 @@ class SVRPredictor(Predictor):
 			'expected': self.testY
 		})
 		pf.index = self.test.index.values
-		pf.to_csv('svm_pred.csv', index_label='Date')
+		pf.to_csv('svr_pred.csv', index_label='Date')
+
 
 class KNNPredictor(Predictor):
 	def compile(self):
@@ -132,6 +135,12 @@ class KNNPredictor(Predictor):
 		print(confusion_matrix(self.testY, y_pred))
 		print(classification_report(self.testY, y_pred))
 		print("Accuracy: {}".format(accuracy_score(self.testY, y_pred)))
+		pf = pd.DataFrame.from_dict({
+			'predicted': y_pred,
+			'expected': self.testY
+		})
+		pf.index = self.test.index.values
+		pf.to_csv('knn_pred.csv', index_label='Date')
 
 
 class DTPredictor(Predictor):
@@ -175,6 +184,13 @@ class LogRegPredictor(Predictor):
 	def evaluate(self):
 		scores = self.model.evaluate(self.testX, self.testY, verbose=0)
 		print("Accuracy: {}".format(scores[1]))
+		y_pred = self.predict()
+		pf = pd.DataFrame.from_dict({
+			'predicted': from_categorical(y_pred),
+			'expected': from_categorical(self.testY)
+		})
+		pf.index = self.test.index.values
+		pf.to_csv('logreg_pred.csv', index_label='Date')
 
 
 class LSTMPredictor(Predictor):
@@ -182,15 +198,15 @@ class LSTMPredictor(Predictor):
 		if self.trainX is None:
 			raise RuntimeError("Dataset not loaded!")
 		# one hot encode output
-		#self.trainY = to_categorical(self.trainY, num_classes=3)
-		#self.testY = to_categorical(self.testY, num_classes=3)
+		self.trainY = to_categorical(self.trainY, num_classes=3)
+		self.testY = to_categorical(self.testY, num_classes=3)
 		# reshape input to be 3D [samples, timesteps, features]
 		self.trainX = self.trainX.reshape((self.trainX.shape[0], 1, self.trainX.shape[1]))
 		self.testX = self.testX.reshape((self.testX.shape[0], 1, self.testX.shape[1]))
 		self.model = Sequential()
-		self.model.add(LSTM(8, input_shape=(1, self.trainX.shape[2])))
+		self.model.add(LSTM(50, input_shape=(1, self.trainX.shape[2])))
 		self.model.add(Dropout(0.2))
-		self.model.add(Dense(1)) # Should match number of categories
+		self.model.add(Dense(3)) # Should match number of categories
 		self.model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 		#self.model.compile(loss='mse', optimizer='adam', metrics=['accuracy'])
 
@@ -202,10 +218,10 @@ class LSTMPredictor(Predictor):
 	def evaluate(self):
 		scores = self.model.evaluate(self.testX, self.testY, verbose=0)
 		print("Accuracy: {}".format(scores[1]))
-		pred_y = self.predict()
+		y_pred = self.predict()
 		pf = pd.DataFrame.from_dict({
-			'predicted':pred_y,
-			'expected':self.testY
+			'predicted': from_categorical(y_pred),
+			'expected': from_categorical(self.testY)
 		})
 		pf.index = self.test.index.values
 		pf.to_csv('lstm_pred.csv', index_label='Date')
@@ -215,10 +231,10 @@ if __name__ == '__main__':
 	# fix random seed for reproducibility
 	np.random.seed(5)
 
-	p = SVRPredictor()
-	df = pd.read_csv("data/result/btc_rolled.csv", sep=',', encoding='utf-8', index_col='Date')
-
-	p.load_dataset(df.loc['2011-01-01':], 'Date', 'y', 0.5, ['y_var'])
+	p = LSTMPredictor()
+	df = pd.read_csv("data/result/dataset.csv", sep=',', encoding='utf-8', index_col='Date')
+	input = df.loc['2011-01-01':'2012-01-01']
+	p.load_dataset(input, 'Date', 'y', 0.1)
 	p.compile()
 	p.fit()
 	# train_result = p.train()

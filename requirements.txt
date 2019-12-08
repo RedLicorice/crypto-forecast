@@ -6,4 +6,5 @@ sklearn
 sklearn-genetic
 tensorflow
 jinja2
-ta
+pyti
+statsmodels

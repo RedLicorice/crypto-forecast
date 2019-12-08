@@ -1,0 +1,107 @@
+from technical_indicators import (simple_moving_average, exponential_moving_average,
+								  percetage_price_oscillator, chande_momentum_oscillator,
+								  average_true_range_percent, percetage_volume_oscillator)
+from ta.trend import AroonIndicator, MACD, ADXIndicator
+from ta.momentum import RSIIndicator, MFIIndicator, TSIIndicator, StochIndicator
+from ta.volume import AccDistIndexIndicator, OnBalanceVolumeIndicator
+
+	def get_ta_features(self, input, symbol):
+		#drop = [col for col in input.columns] # make a copy
+		#df = ta.add_all_ta_features(input, symbol + "_Open",  symbol + "_High",  symbol + "_Low",  symbol,  symbol + "_Volume", fillna=True)
+		#map = {}
+		#for col in df.columns:
+		#	if not col in drop:
+		#		map[col] = symbol + "_" + col
+		#df.rename(columns=map, inplace=True)
+		#
+		df = input.rename(columns={
+			symbol: 'close',
+			symbol + '_Open' : 'open',
+			symbol + '_High' : 'high',
+			symbol + '_Low' : 'low',
+			symbol + '_Volume' : 'volume',
+		})
+		drop_cols = [c for c in df.columns if c != 'Date']
+
+		close_ = input[symbol].values
+		sma5 = simple_moving_average(close_, period=5)
+		sma8 = simple_moving_average(close_, period=8)
+		sma15 = simple_moving_average(close_, period=15)
+		sma20 = simple_moving_average(close_, period=20)
+		sma50 = simple_moving_average(close_, period=50)
+		ema5 = exponential_moving_average(close_, period=5)
+		ema8 = exponential_moving_average(close_, period=8)
+		ema15 = exponential_moving_average(close_, period=15)
+		ema20 = exponential_moving_average(close_, period=20)
+		ema50 = exponential_moving_average(close_, period=50)
+		# Determine relative moving averages
+		df[symbol+'_rsma5_20'] = np.divide(sma5 - sma20, sma20)
+		df[symbol+'_rsma8_15'] = np.divide(sma8 - sma15, sma15)
+		df[symbol+'_rsma20_50'] = np.divide(sma20 - sma50, sma50)
+		df[symbol+'_rema5_20'] = np.divide(ema5 - ema20, ema20)
+		df[symbol+'_rema8_15'] = np.divide(ema8 - ema15, ema15)
+		df[symbol+'_rema20_50'] = np.divide(ema20 - ema50, ema50)
+
+		# MACD Indicator
+		indicator_macd = MACD(close=df['close'], n_fast=12, n_slow=26, n_sign=9, fillna=True)
+		df[symbol+'_macd_12_26'] = indicator_macd.macd()
+		#df[symbol+'_macd_12_26_signal'] = indicator_macd.macd_signal()
+		#df[symbol+'_macd_12_26_diff'] = indicator_macd.macd_diff()
+
+		# Aroon Indicator
+		indicator = AroonIndicator(close=df['close'], n=14, fillna=True)
+		#df[symbol+'_trend_aroon_up'] = indicator.aroon_up()
+		#df[symbol+'_trend_aroon_down'] = indicator.aroon_down()
+		df[symbol+'_trend_aroon_ind'] = indicator.aroon_indicator()
+
+		# Average Directional Movement Index (ADX)
+		indicator = ADXIndicator(high=df['high'], low=df['low'], close=df['close'], n=14, fillna=True)
+		df[symbol+'_adx'] = indicator.adx()
+		#df[symbol+'_adx_pos'] = indicator.adx_pos()
+		#df[symbol+'_adx_neg'] = indicator.adx_neg()
+		df[symbol+'_wd'] = indicator.adx_pos() - indicator.adx_neg()
+
+		# Percentage Price Oscillator
+		## Not available in ta
+		df[symbol+'_ppo'] = percetage_price_oscillator(close_)
+
+		# Relative Strength Index
+		df[symbol+'_rsi'] = RSIIndicator(close=df['close'], n=14, fillna=True).rsi()
+
+		# Money Flow Index
+		df[symbol+'_mfi'] = MFIIndicator(
+			high=df['high'], low=df['low'], close=df['close'], volume=df['volume'],
+			n=14, fillna=True
+		).money_flow_index()
+
+		# True Strength Index
+		df[symbol+'_tsi'] = TSIIndicator(close=df['close'], r=25, s=13, fillna=True).tsi()
+
+		# Stochastic Oscillator
+		indicator = StochIndicator(high=df['high'], low=df['low'], close=df['close'], n=14, d_n=3, fillna=True)
+		df[symbol+'_stoch'] = indicator.stoch()
+		#df[symbol+'_stoch_signal'] = indicator.stoch_signal()
+
+		# Chande Momentum Oscillator
+		## Not available in ta
+		df[symbol+'_cmo'] = chande_momentum_oscillator(close_, 14)
+
+		# Average True Range Percentage
+		df[symbol+'_atrp'] = average_true_range_percent(df['close'], df['high'], df['low'], 14)
+
+		# Percentage Volume Oscillator
+		## Not available in ta
+		# Settings in paper are wrong!
+		df[symbol+'_pvo'] = percetage_volume_oscillator(df['volume'], 12, 26)
+
+		# Accumulation Distribution Line
+		df[symbol+'_adi'] = AccDistIndexIndicator(
+			high=df['high'], low=df['low'], close=df['close'], volume=df['volume'], fillna=True
+		).acc_dist_index()
+
+		# On Balance Volume
+		df[symbol+'_obv'] = OnBalanceVolumeIndicator(
+        	close=df['close'], volume=df['volume'], fillna=True
+		).on_balance_volume()
+
+		return df.drop(columns=drop_cols, axis=1)

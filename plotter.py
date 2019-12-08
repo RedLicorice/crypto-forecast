@@ -44,9 +44,10 @@ class Plotter:
 
 if __name__ == '__main__':
 	p = Plotter()
-	data = pd.read_csv('data/result/btc_ohlcv.csv', sep=',', encoding='utf-8', index_col=None)
+	data = pd.read_csv('data/result/btc_rolled.csv', sep=',', encoding='utf-8', index_col=None)
 	data['Date'] = pd.to_datetime(data['Date'])
-	p.lineplot(data, ['Close','DiffMean', 'AdrActCnt','BlkSizeByte', 'TxTfrCnt'])
-	p.lineplot(data, ['Close','DiffMean', 'CapMrktCurUSD', 'CapRealUSD'])
-	p.lineplot(data, ['Close','DiffMean', 'FeeMeanUSD','IssTotUSD'])
-	p.lineplot(data, ['Close','IssContUSD', 'IssContNtv'])
+	#p.lineplot(data, ['BTC','BTC_DiffMean', 'BTC_AdrActCnt','BTC_BlkSizeByte', 'BTC_TxTfrCnt'])
+	#p.lineplot(data, ['BTC','BTC_DiffMean', 'BTC_CapMrktCurUSD', 'BTC_CapRealUSD'])
+	#p.lineplot(data, ['BTC','BTC_DiffMean', 'BTC_FeeMeanUSD','BTC_IssTotUSD'])
+	#p.lineplot(data, ['BTC','BTC_IssContUSD', 'BTC_IssContNtv'])
+	p.lineplot(data, ['BTC','BTC_Open', 'BTC_High', 'BTC_Low'])
