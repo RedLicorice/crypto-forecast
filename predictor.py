@@ -213,7 +213,7 @@ class LSTMPredictor(Predictor):
 	def fit(self):
 		if self.model is None:
 			raise RuntimeError("No model compiled!")
-		self.model.fit(self.trainX, self.trainY, epochs=100, batch_size=32, verbose=1, validation_data=(self.testX, self.testY))
+		self.model.fit(self.trainX, self.trainY, epochs=300, batch_size=32, verbose=1)
 
 	def evaluate(self):
 		scores = self.model.evaluate(self.testX, self.testY, verbose=0)
@@ -233,8 +233,8 @@ if __name__ == '__main__':
 
 	p = LSTMPredictor()
 	df = pd.read_csv("data/result/dataset.csv", sep=',', encoding='utf-8', index_col='Date')
-	input = df.loc['2011-01-01':'2012-01-01']
-	p.load_dataset(input, 'Date', 'y', 0.1)
+	input = df.loc['2011-01-01':'2013-01-01']
+	p.load_dataset(input, 'Date', 'y', 0.7)
 	p.compile()
 	p.fit()
 	# train_result = p.train()

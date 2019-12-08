@@ -3,7 +3,6 @@ keras
 matplotlib
 pandas
 sklearn
-sklearn-genetic
 tensorflow
 jinja2
 pyti

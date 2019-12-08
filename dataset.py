@@ -2,11 +2,10 @@ import pandas as pd
 from functools import reduce
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
-#from sklearn import linear_model
-#from genetic_selection import GeneticSelectionCV
+from sklearn.impute import SimpleImputer
+from scipy.signal import detrend
 from technical_indicators import *
 from math import isnan
-import statsmodels
 from statsmodels.tsa.stattools import adfuller
 import json
 
@@ -142,12 +141,14 @@ class DatasetBuilder:
 			crit[k] = {'value':v,'null_hp_reject_by_adfstat':'True (Stationary)' if adfstat <= v else 'False (Non-Stationary)'}
 			if adfstat <= v:
 				reject_by_adf = 1
-		reject = reject_by_adf and pvalue <= significance
-		return reject, {
+		reject_by_pvalue = pvalue <= significance
+		reject = reject_by_adf and reject_by_pvalue
+		potential_reject = reject_by_adf ^ reject_by_pvalue # if both are true then it's reject already
+		return reject, potential_reject, {
 			'adfstat':adfstat,
 			'pvalue':pvalue,
 			'null_hp_reject_by_pvalue': 'True (Stationary)' if pvalue <= significance else 'False (Non Stationary)',
-			'reject_by_pvalue': 1 if pvalue <= significance else 0,
+			'reject_by_pvalue': 1 if reject_by_pvalue else 0,
 			'reject_by_adf': reject_by_adf,
 			'reject': 1 if reject else 0,
 			'usedlag':usedlag,
@@ -158,32 +159,14 @@ class DatasetBuilder:
 	def drop_empty_rows(self, df, col):
 		return df[df[col] != 0]
 
-	def fill_holes(self, values):
-		# Fill holes with a median value
-		max = len(values)
-		result = []
-		last_nonzero = 0
-		for i, val in enumerate(values):
-			if not val:
-				w = 1
-				next = values[i + w]
-				if i + w >= len(values):
-					next = last_nonzero
-				else:
-					while not next:
-						w += 1
-						if i + w >= len(values):
-							next = last_nonzero
-							break
-						next = values[i + w]
-				prev = last_nonzero
-				diff = next - prev
-				div = diff / w # w is at least 1
-				result.append(div)
-			else:
-				last_nonzero = val
-				result.append(val)
-		return np.array(result)
+	def fill_holes(self, values, hole=np.nan):
+		imp = SimpleImputer(missing_values=hole, strategy='mean')
+		old_shape = values.shape
+		resh = np.reshape(values, (-1,1))
+		imp.fit(resh)
+		res = imp.transform(resh)
+		res = np.reshape(res, old_shape)
+		return res
 
 	def to_discrete(self, values, range_down = 0.01, range_up = 0.01):
 		# mark a vector of variations as increase or decrease
@@ -236,6 +219,15 @@ class DatasetBuilder:
 			diff = shifted - input
 			return np.divide(diff, input)  # Pt+1 - Pt / Pt
 
+	def to_difference(self, input, shift = 1):
+		shifted = np.roll(input, shift)
+		shifted = self.fill_holes(shifted)
+
+		diff = input - shifted
+		if shift < 0:
+			diff = shifted - input
+		return diff
+
 	def add_window(self, df, column, length):
 		if not column in df.columns:
 			raise ('Column does not exist!')
@@ -252,8 +244,8 @@ class DatasetBuilder:
 
 	def scale(self, df, exclude = None, range=(0,1)):
 		for col in df.columns.difference(exclude) if exclude != None else df.columns:
-			numeric = pd.to_numeric(df[col], errors='coerce')
-			df[col] = self._shape(numeric.values, range)
+			#numeric = pd.to_numeric(df[col], errors='coerce')
+			df[col] = self._shape(df[col].values, range)
 		return df
 
 	## Feature selection
@@ -322,14 +314,14 @@ if __name__ == '__main__':
 	print("OHLCV+TA rows: " + str(dataset.shape[0]))
 
 	# Add blockchain information
-	chain = pd.read_csv('data/coinmetrics.io/btc.csv', sep=',', index_col='date')
-	chain.drop(columns=['PriceUSD'], inplace=True) # Drop PriceUSD because it's redundant
-	chain.dropna(axis=1, how='any', inplace=True) # Drop columns composed of NaN values
-	dataset = db.add_blockchain_data(dataset, chain, 'BTC')
-	print("OHLCV+TA+Blockchain rows: " + str(dataset.shape[0]))
+	#chain = pd.read_csv('data/coinmetrics.io/btc.csv', sep=',', index_col='date')
+	#chain.drop(columns=['PriceUSD'], inplace=True) # Drop PriceUSD because it's redundant
+	#chain.dropna(axis=1, how='all', inplace=True) # Drop columns composed of NaN values
+	#dataset = db.add_blockchain_data(dataset, chain, 'BTC')
+	#print("OHLCV+TA+Blockchain rows: " + str(dataset.shape[0]))
 
 	# Add Y
-	values = db.fill_holes(ohlcv['BTC'].values)
+	values = db.fill_holes(dataset['BTC'].values)
 	y = db.to_variation(values, -1)  # variation w.r.t. next day
 	y = db.to_discrete(y, -0.01, 0.01)
 	dataset['y'] = y
@@ -337,6 +329,11 @@ if __name__ == '__main__':
 	# Fill holes by average, from relevant records only (previous ones may contain holes due to windows spinning in)
 	db.check_dataset(dataset[dataset.columns.difference(['y'])].loc['2011-01-01':])
 
+	# Make data stationary by differencing
+	for col in ['BTC','BTC_High','BTC_Low','BTC_Open','BTC_adi','BTC_obv']:
+		#dataset[col] = db.to_variation(dataset[col].values, 1)
+		dataset[col] = db.to_difference(dataset[col].values, 1) # best results on LSTM
+		#dataset[col] = detrend(dataset[col].values, axis=-1, type='linear')
 	# Normalize data
 	dataset = db.scale(dataset, ['y']) # Rescale everything but y in (0,1)
 
@@ -354,12 +351,16 @@ if __name__ == '__main__':
 
 	# Do ADF Test
 	adf = {}
+	non_stationary_cols_p = []
 	non_stationary_cols = []
-	for col in dataset.columns.difference(['y','y_label']):
-		reject, res = db.adf_test(dataset.loc['2011-01-01':][col].values, 0.05, False)
+	for col in dataset.columns.difference(['y','y_label','y_var']):
+		reject, potential, res = db.adf_test(dataset.loc['2011-01-01':][col].values, 0.05, False)
 		adf[col] = res
 		if not reject:
 			non_stationary_cols.append(col)
+		if potential:
+			non_stationary_cols_p.append(col)
 	print('Non stationary columns: [%s]' % ','.join(non_stationary_cols))
+	print('Potentially non stationary columns: [%s]' % ','.join(non_stationary_cols_p))
 	with open('data/result/dataset_adf.json', 'w') as fp:
 		json.dump(adf, fp, indent=4, sort_keys=False)
