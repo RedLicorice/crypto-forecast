@@ -20,6 +20,13 @@ def from_categorical(encoded):
 		res.append(decoded)
 	return res
 
+def add_lag(df, lag):
+	lags = range(1,lag)
+	return df.assign(**{
+		'{} (t-{})'.format(col, t): df[col].shift(t)
+		for t in lags
+		for col in df
+	})
 
 class Predictor:
 	dataset = None
@@ -183,15 +190,17 @@ class LogRegPredictor(Predictor):
 
 
 class LSTMPredictor(Predictor):
-	def compile(self):
+	# If a row contains data for more than one timestep, ie lagged features
+	#  set lag_timesteps to the lag window.
+	def compile(self, lag_timesteps=1):
 		if self.trainX is None:
 			raise RuntimeError("Dataset not loaded!")
 		# one hot encode output
 		self.trainY = to_categorical(self.trainY, num_classes=3)
 		self.testY = to_categorical(self.testY, num_classes=3)
 		# reshape input to be 3D [samples, timesteps, features]
-		self.trainX = self.trainX.reshape((self.trainX.shape[0], 1, self.trainX.shape[1]))
-		self.testX = self.testX.reshape((self.testX.shape[0], 1, self.testX.shape[1]))
+		self.trainX = self.trainX.reshape((self.trainX.shape[0], lag_timesteps, self.trainX.shape[1]))
+		self.testX = self.testX.reshape((self.testX.shape[0], lag_timesteps, self.testX.shape[1]))
 
 		self.model = Sequential()
 		self.model.add(LSTM(50, input_shape=(1, self.trainX.shape[2])))
@@ -202,7 +211,10 @@ class LSTMPredictor(Predictor):
 	def fit(self):
 		if self.model is None:
 			raise RuntimeError("No model compiled!")
-		self.model.fit(self.trainX, self.trainY, epochs=100, batch_size=32, verbose=0)
+		#In Keras the internal state is reset at the end of each batch
+		# Batch size therefore represents how many states will be kept in memory.
+		# Epochs, instead, determines how many times the model will be run through the training set.
+		self.model.fit(self.trainX, self.trainY, epochs=300, batch_size=90, verbose=0)
 
 	def evaluate(self):
 		scores = self.model.evaluate(self.testX, self.testY, verbose=0)
@@ -221,8 +233,9 @@ if __name__ == '__main__':
 	# fix random seed for reproducibility
 	np.random.seed(5)
 
-	p = SVCPredictor()
+	p = LSTMPredictor()
 	df = pd.read_csv("data/result/dataset.csv", sep=',', encoding='utf-8', index_col='Date')
+	df = add_lag(df, 7)
 	input = df.loc['2011-01-01':'2013-01-01']
 	p.load_dataset(input, 'Date', 'y', 0.7)
 	p.compile()
