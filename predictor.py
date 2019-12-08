@@ -92,9 +92,9 @@ class Predictor:
 
 
 class SVCPredictor(Predictor):
-	def compile(self, C=1.5):
+	def compile(self):
 		# Previously only had kernel = 'rbf
-		self.model = SVC(kernel='poly', C=C, degree=30, break_ties=True)
+		self.model = SVC(kernel='poly', C=1.5, degree=30, probability=True)
 
 	def fit(self):
 		self.model.fit(self.trainX, self.trainY)
@@ -110,26 +110,6 @@ class SVCPredictor(Predictor):
 		})
 		pf.index = self.test.index.values
 		pf.to_csv('svc_pred.csv', index_label='Date')
-
-
-class SVRPredictor(Predictor):
-	def compile(self):
-		self.model = SVR(kernel='rbf')
-
-	def fit(self):
-		self.model.fit(self.trainX, self.trainY)
-
-	def evaluate(self):
-		y_pred = self.predict()
-		print(confusion_matrix(self.testY, y_pred))
-		print(classification_report(self.testY, y_pred))
-		print("Accuracy: {}".format(accuracy_score(self.testY, y_pred)))
-		pf = pd.DataFrame.from_dict({
-			'predicted': y_pred,
-			'expected': self.testY
-		})
-		pf.index = self.test.index.values
-		pf.to_csv('svr_pred.csv', index_label='Date')
 
 
 class KNNPredictor(Predictor):
@@ -212,13 +192,12 @@ class LSTMPredictor(Predictor):
 		# reshape input to be 3D [samples, timesteps, features]
 		self.trainX = self.trainX.reshape((self.trainX.shape[0], 1, self.trainX.shape[1]))
 		self.testX = self.testX.reshape((self.testX.shape[0], 1, self.testX.shape[1]))
+
 		self.model = Sequential()
-		#self.model.add(Embedding(self.trainX.shape[1], output_dim=256))
 		self.model.add(LSTM(50, input_shape=(1, self.trainX.shape[2])))
 		self.model.add(Dropout(0.2))
 		self.model.add(Dense(3)) # Should match number of categories
 		self.model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy','mse'])
-		#self.model.compile(loss='mse', optimizer='adam', metrics=['accuracy'])
 
 	def fit(self):
 		if self.model is None:
@@ -242,10 +221,10 @@ if __name__ == '__main__':
 	# fix random seed for reproducibility
 	np.random.seed(5)
 
-	p = LSTMPredictor()
+	p = SVCPredictor()
 	df = pd.read_csv("data/result/dataset.csv", sep=',', encoding='utf-8', index_col='Date')
 	input = df.loc['2011-01-01':'2013-01-01']
-	p.load_dataset(input, 'Date', 'y', 0.5)
+	p.load_dataset(input, 'Date', 'y', 0.7)
 	p.compile()
 	p.fit()
 	# train_result = p.train()
