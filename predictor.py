@@ -46,11 +46,19 @@ class Predictor:
 
 	def load_test(self, df, index, res, exclude = None):
 		self.testX, self.testY = self._get_xy(df, index, res, exclude)
+		self.print_unique_ratio("testY", self.testY)
 		self.test = df
 
 	def load_train(self, df, index, res, exclude = None):
 		self.trainX, self.trainY = self._get_xy(df, index, res, exclude)
+		self.print_unique_ratio("trainY", self.trainY)
 		self.train = df
+
+	def print_unique_ratio(self, label, arr):
+		total = max(1,arr.shape[0])
+		unique, counts = np.unique(arr, return_counts=True)
+		for cls,cnt in zip(unique,counts):
+			print("{} (class {}): count {} pct {}%".format(label, cls, cnt, cnt*100/total))
 
 	def _get_xy(self, df, index, res, exclude = None):
 		# Prepare Y
