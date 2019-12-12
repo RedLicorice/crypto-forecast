@@ -14,6 +14,7 @@ from pyti.average_true_range_percent import average_true_range_percent
 from pyti.volume_oscillator import volume_oscillator
 #from pyti.accumulation_distribution import accumulation_distribution
 from pyti.on_balance_volume import on_balance_volume
+#from pyti.force_index import force_index
 
 from pyti.function_helper import fill_for_noncomputable_vals
 from pyti import catch_errors
@@ -83,7 +84,7 @@ def accumulation_distribution_mine(close_data, high_data, low_data, volume):
 		ad[idx] = mfv[idx-1] + ad[idx-1]
 	return ad
 
-def accumulation_distribution(close_data, high_data, low_data, volume):
+def accumulation_distribution(close_data, high_data, low_data, volume, **kwargs):
 	"""
 	Accumulation/Distribution.
 	Formula:
@@ -98,7 +99,10 @@ def accumulation_distribution(close_data, high_data, low_data, volume):
 		candle = high_data[idx] - low_data[idx]
 		if candle == 0:
 			if high_data[idx] != close_data[idx]:
-				raise RuntimeError("High and low are equals but close is not.")
+				if kwargs.get("ignore_errors", False):
+					ad[idx] = ad[idx - 1] # Smooth
+				else:
+					raise RuntimeError("High and low are equals but close is not.")
 			else:
 				ad[idx] = ad[idx - 1]
 		else:

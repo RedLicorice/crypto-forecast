@@ -6,3 +6,5 @@ sklearn
 tensorflow
 pyti
 statsmodels
+seaborn
+imbalanced-learn

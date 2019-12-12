@@ -1,12 +1,18 @@
 import pandas as pd
 from functools import reduce
 import numpy as np
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
-from scipy.signal import detrend
 from technical_indicators import *
 from math import isnan
 from statsmodels.tsa.stattools import adfuller
+import seaborn as sns
+from matplotlib import pyplot as plt
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from keras.utils import to_categorical
+
+from plotter import correlation
+
 import json
 
 class DatasetBuilder:
@@ -25,6 +31,18 @@ class DatasetBuilder:
 		ohlcv.drop(ohlcv.columns.difference(keep), 1, inplace=True)
 		return ohlcv
 
+	def change_ohlcv_symbol(self, ohlcv, mapping):
+		for col_name, symbol in mapping.items():
+			_map = {
+				col_name : symbol,
+				col_name + '_Open': symbol + '_Open',
+				col_name + '_High': symbol + '_High',
+				col_name + '_Low' : symbol + '_Low',
+				col_name + '_Volume' : symbol + '_Volume'
+			}
+			ohlcv.rename(columns = _map, inplace=True)
+		return ohlcv
+
 	def add_blockchain_data(self, input, chain, symbol):
 		# Rename index for join
 		map = {'date': 'Date'}
@@ -35,12 +53,21 @@ class DatasetBuilder:
 		chain.rename(columns=map, inplace=True)
 		return input.join(chain, how='left', sort=True)
 
-	def add_ta_features(self, df, symbol):
+	def add_ta_features(self, df, symbol, discrete=False):
+		# Set numpy to ignore division error and invalid values (since not all datasets are complete)
+		old_settings = np.seterr(divide='ignore',invalid='ignore')
+
 		col_close = symbol
 		col_open = symbol + '_Open'
 		col_high = symbol + '_High'
 		col_low = symbol + '_Low'
 		col_volume = symbol + '_Volume'
+
+
+		# Determine moving averages
+		#for n in [5, 8, 15, 20, 50]:
+		#	df[symbol+'_sma_'+str(n)] = simple_moving_average(df[col_close].values, n)
+		#	df[symbol+'_ema_'+str(n)] = exponential_moving_average(df[col_close].values, n)
 
 		# Determine relative moving averages
 		df[symbol+'_rsma5_20'] = relative_sma(df[col_close].values, 5, 20)
@@ -87,33 +114,104 @@ class DatasetBuilder:
 		df[symbol+'_atrp'] = average_true_range_percent(df[col_close].values, 14)
 
 		# Percentage Volume Oscillator
-		## Not available in ta
-		# Settings in paper are wrong!
 		df[symbol+'_pvo'] = volume_oscillator(df[col_volume].values, 12, 26)
 
+		# Force Index
+		#fi = force_index(df[col_close].values, df[col_volume].values)
+		#df[symbol+'_fi13'] = exponential_moving_average(fi, 13)
+		#df[symbol+'_fi50'] = exponential_moving_average(fi, 50)
+
 		# Accumulation Distribution Line
-		df[symbol+'_adi'] = accumulation_distribution(df[col_close].values,  df[col_high].values, df[col_low].values, df[col_volume].values)
+		df[symbol+'_adi'] = accumulation_distribution(df[col_close].values,  df[col_high].values, df[col_low].values,
+													  df[col_volume].values, ignore_errors=True)
 
 		# On Balance Volume
 		df[symbol+'_obv'] = on_balance_volume(df[col_close].values, df[col_volume].values)
 
+		# Restore numpy error settings
+		np.seterr(**old_settings)
+		if discrete:
+			df[symbol + '_rsma5_20'] = self.to_discrete_single(df[symbol + '_rsma5_20'], 0)
+			df[symbol + '_rsma8_15'] = self.to_discrete_single(df[symbol + '_rsma8_15'], 0)
+			df[symbol + '_rsma20_50'] = self.to_discrete_single(df[symbol + '_rsma20_50'], 0)
+			df[symbol + '_rema5_20'] = self.to_discrete_single(df[symbol + '_rema5_20'], 0)
+			df[symbol + '_rema8_15']  = self.to_discrete_single(df[symbol + '_rema8_15'], 0)
+			df[symbol + '_rema20_50'] = self.to_discrete_single(df[symbol + '_rema20_50'], 0)
+			df[symbol + '_macd_12_26'] = self.to_discrete_single(df[symbol + '_macd_12_26'], 0)
+			df[symbol + '_ao'] = self.to_discrete_single(df[symbol + '_ao'], 0)
+			df[symbol + '_adx'] = self.to_discrete_single(df[symbol + '_adx'], 20)
+			df[symbol + '_wd'] = self.to_discrete_single(df[symbol + '_wd'], 0)
+			df[symbol + '_ppo'] = self.to_discrete_single(df[symbol + '_ppo'], 0)
+			df[symbol + '_rsi'] = self.to_discrete_double(df[symbol + '_rsi'], 30, 70)
+			df[symbol + '_mfi'] = self.to_discrete_double(df[symbol + '_mfi'], 30, 70)
+			df[symbol + '_tsi'] = self.to_discrete_double(df[symbol + '_tsi'], -25, 25)
+			df[symbol + '_stoch'] = self.to_discrete_double(df[symbol + '_stoch'], 20, 80)
+			df[symbol + '_cmo'] = self.to_discrete_double(df[symbol + '_cmo'], -50, 50)
+			df[symbol + '_atrp'] = self.to_discrete_single(df[symbol + '_atrp'], 30)
+			df[symbol + '_pvo'] = self.to_discrete_single(df[symbol + '_pvo'], 0)
+			#df[symbol + '_fi13'] = self.to_discrete_single(df[symbol + '_fi13'], 0)
+			#df[symbol + '_fi50'] = self.to_discrete_single(df[symbol + '_fi50'], 0)
+			df[symbol + '_adi'] = self.to_discrete_single(df[symbol + '_adi'], 0)
+			df[symbol + '_obv'] = self.to_discrete_single(df[symbol + '_obv'], 0)
 		return df
 
 	## Operations on columns
-	def check_dataset(self, df):
-		for col in df.columns:
-			self.check_integrity(df, col)
+	def fill_holes(self, values, hole=np.nan):
+		imp = SimpleImputer(missing_values=hole, strategy='mean')
+		old_shape = values.shape
+		resh = np.reshape(values, (-1,1))
+		imp.fit(resh)
+		res = imp.transform(resh)
+		res = np.reshape(res, old_shape)
+		return res
 
-	def check_integrity(self, df, col, fix=True):
-		for i,v in enumerate(df[col].values):
-			if not v:
-				print("{} contains zeroes at index {} - {}".format(col, i, df.index[i]))
-				if fix:
-					df[col] = self.fill_holes(df[col].values)
-			if v == None:
-				print("{} contains None at index {} - {}".format(col, i, df.index[i]))
-			if isnan(v):
-				print("{} contains NaN at index {} - {}".format(col, i, df.index[i]))
+	# Discretization
+	def to_discrete_single(self, values, threshold):
+		def _to_discrete(x, threshold):
+			if np.isnan(x):
+				return np.nan
+			if x < threshold:
+				return 1
+			return 2
+		fun = np.vectorize(_to_discrete)
+		return fun(values, threshold)
+
+	def to_discrete_double(self, values, threshold_lo = 0.01, threshold_hi = 0.01):
+		def _to_discrete(x, threshold_lo, threshold_hi):
+			if np.isnan(x):
+				return np.nan
+			if x <= threshold_lo:
+				return 1
+			elif threshold_lo < x < threshold_hi:
+				return 2
+			else:
+				return 3
+		fun = np.vectorize(_to_discrete)
+		return fun(values, threshold_lo, threshold_hi)
+
+	def discrete_label(self, values):
+		def _to_label(cls):
+			if np.isnan(cls):
+				return np.nan
+			if cls == 1:
+				return 'Decrease'
+			elif cls == 2:
+				return 'Stationary'
+			elif cls == 3:
+				return 'Increase'
+		return np.vectorize(_to_label)(values)
+
+	# Analysis
+	def lda_reduction(self, X, y):
+		lda = LinearDiscriminantAnalysis(n_components=12)
+		X_lda = lda.fit(X, y).transform(X)
+		# Print the number of features
+		print('Original number of features:', X.shape[1])
+		print('Reduced number of features:', X_lda.shape[1])
+		for x,var in zip(X_lda, lda.explained_variance_ratio_):
+			print('{} = {}'.format(x,var))
+		print(X_lda)
+		return X_lda
 
 	def adf_test(self, timeseries, significance=.05, printResults=True):
 		# Dickey-Fuller test:
@@ -156,142 +254,27 @@ class DatasetBuilder:
 			'critvalues': crit,
 		}
 
-	def drop_empty_rows(self, df, col):
-		return df[df[col] != 0]
+	# Checks
+	def check_dataset(self, df):
+		for col in df.columns:
+			self.check_integrity(df, col)
 
-	def fill_holes(self, values, hole=np.nan):
-		imp = SimpleImputer(missing_values=hole, strategy='mean')
-		old_shape = values.shape
-		resh = np.reshape(values, (-1,1))
-		imp.fit(resh)
-		res = imp.transform(resh)
-		res = np.reshape(res, old_shape)
-		return res
+	def check_integrity(self, df, col, fix=True):
+		for i,v in enumerate(df[col].values):
+			if not v:
+				print("{} contains zeroes at index {} - {}".format(col, i, df.index[i]))
+			if v == None:
+				print("{} contains None at index {} - {}".format(col, i, df.index[i]))
+			if isnan(v):
+				print("{} contains NaN at index {} - {}".format(col, i, df.index[i]))
 
-	def to_discrete(self, values, range_down = 0.01, range_up = 0.01):
-		# mark a vector of variations as increase or decrease
-		# if variation > range_up => increase
-		# if variation < range_down => decrease
-		# else if range_down < variation < range_up => stationary
-		y = []
-		for v in values:
-			if v > range_up:  # mark as Increase
-				y.append(2)
-			elif v < range_down:  # mark
-				y.append(0)
-			else:  # by default we hodl (1)
-				y.append(1)
-		return y
+	def get_non_numeric(self, df):
+		not_numeric = []
+		for col in df.columns:
+			if not np.issubdtype(df[col].dtype, np.number):
+				not_numeric.append(col)
+		return not_numeric
 
-	def discrete_label(self, values):
-		y = []
-		for v in values:
-			if v == 0:
-				y.append('Decrease')
-			elif v == 1:
-				y.append('Stationary')
-			elif v == 2:
-				y.append('Increase')
-		return y
-
-
-	def to_variation(self, input, shift = -1):
-		# if shift > 0, np.roll gives t - shift
-		# if shift < 0, np.roll gives t + shift
-		## Example
-		# x = 				0 1 2 3 4 5 6 7 8 9
-		# np.roll(x, 1) = 	9 0 1 2 3 4 5 6 7 8
-		# np.roll(x, -1) =	1 2 3 4 5 6 7 8 9 0
-
-		shifted = np.roll(input, shift)
-		shifted = self.fill_holes(shifted)
-		#np.seterr(divide='ignore')
-		if shift > 0:
-			# variation with past value
-			# input is t+1
-			# shift is t
-			diff = input - shifted
-			return np.divide(diff, shifted) # Pt+1 - Pt / Pt
-		if shift < 0:
-			# variation with future value
-			# input is t
-			# shift is t+1
-			diff = shifted - input
-			return np.divide(diff, input)  # Pt+1 - Pt / Pt
-
-	def to_difference(self, input, shift = 1):
-		shifted = np.roll(input, shift)
-		shifted = self.fill_holes(shifted)
-
-		diff = input - shifted
-		if shift < 0:
-			diff = shifted - input
-		return diff
-
-	def add_window(self, df, column, length):
-		if not column in df.columns:
-			raise ('Column does not exist!')
-		for i in range(length):
-			df[column+'-'+str(i+1)] = np.roll(df[column].values, (i+1))
-		return df
-
-	def _shape(self, values, range=(0,1)):
-		scaler = MinMaxScaler(feature_range=range)
-		# df["Close"] = pd.to_numeric(df["Close"])
-		shaped = np.reshape(values, (-1, 1))
-		scaled = scaler.fit_transform(shaped)
-		return scaled
-
-	def scale(self, df, exclude = None, range=(0,1)):
-		for col in df.columns.difference(exclude) if exclude != None else df.columns:
-			#numeric = pd.to_numeric(df[col], errors='coerce')
-			df[col] = self._shape(df[col].values, range)
-		return df
-
-	## Feature selection
-	"""""
-	def select_features_genetic(self, df, exclude):
-		#df['y_var'] = pd.to_numeric(df['y_var'])
-		#df.fillna(0, inplace=True)
-		y = df['y'].values
-		feature_count = len(df.columns) - len(exclude)
-		features = df.drop(columns=exclude)
-		for col in features.columns:
-			numeric = pd.to_numeric(features[col], errors='coerce')
-			features[col] = self._shape(numeric.values)
-		features.fillna(value=0, inplace=True)
-		X = features.values
-		estimator = linear_model.LogisticRegression(solver="liblinear", multi_class="ovr")
-		selector = GeneticSelectionCV(estimator,
-					cv=5,
-					verbose=1,
-					scoring="accuracy",
-					max_features=20,
-					n_population=150,
-					crossover_proba=0.5,
-					mutation_proba=0.2,
-					n_generations=300,
-					crossover_independent_proba=0.5,
-					mutation_independent_proba=0.05,
-					tournament_size=3,
-					n_gen_no_change=10,
-					caching=True,
-					n_jobs=-1
-		)
-		selector = selector.fit(X, y)
-
-		selected_features = selector.support_
-		final_features = []
-		for idx,col in enumerate(features.columns):
-			if col.startswith('Unnamed'):
-				print("Unnnamed column:{}".format(idx))
-			if selected_features[idx]:
-				final_features.append(col)
-
-
-		print(final_features)
-		return final_features
-		"""""
 
 # Testing, this is NOT a driver
 if __name__ == '__main__':
@@ -301,8 +284,8 @@ if __name__ == '__main__':
 	datasets = []
 	for year in [2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018]:
 		print('Year: '+str(year))
-		ohlc = pd.read_csv('data/polito/'+str(year)+'_candle.csv', sep=',', index_col='Date')
-		vol = pd.read_csv('data/polito/'+str(year)+'_volume.csv', sep=',', index_col='Date')
+		ohlc = pd.read_csv('data/polito/'+str(year)+'_candle.csv', sep=',', index_col='Date', parse_dates=True)
+		vol = pd.read_csv('data/polito/'+str(year)+'_volume.csv', sep=',', index_col='Date', parse_dates=True)
 		ohlcv = db.make_ohlcv('BTC', ohlc, vol)
 		datasets.append(ohlcv)
 	# Merge yearly datasets
@@ -310,56 +293,76 @@ if __name__ == '__main__':
 	print("OHLCV rows: " + str(ohlcv.shape[0]))
 
 	# Build the dataset
-	dataset = db.add_ta_features(ohlcv, 'BTC')
+	dataset = db.add_ta_features(ohlcv, 'BTC', discrete=True)
 	print("OHLCV+TA rows: " + str(dataset.shape[0]))
 
 	# Add blockchain information
-	#chain = pd.read_csv('data/coinmetrics.io/btc.csv', sep=',', index_col='date')
-	#chain.drop(columns=['PriceUSD'], inplace=True) # Drop PriceUSD because it's redundant
-	#chain.dropna(axis=1, how='all', inplace=True) # Drop columns composed of NaN values
-	#dataset = db.add_blockchain_data(dataset, chain, 'BTC')
-	#print("OHLCV+TA+Blockchain rows: " + str(dataset.shape[0]))
+	# chain = pd.read_csv('data/coinmetrics.io/btc.csv', sep=',', index_col='date', parse_dates=True)
+	# chain.drop(columns=['PriceUSD', 'PriceBTC'], inplace=True) # Drop PriceUSD because it's redundant
+	# chain.dropna(axis=0, how='all', inplace=True) # Drop columns composed of NaN values
+	# clean_chain = chain.replace([np.inf, -np.inf], np.nan).interpolate(method='linear', axis=1)
+	# dataset = db.add_blockchain_data(dataset, clean_chain, 'BTC')
+	# print("OHLCV+TA+Blockchain rows: " + str(dataset.shape[0]))
 
 	# Add Y
-	values = db.fill_holes(dataset['BTC'].values)
-	y = db.to_variation(values, -1)  # variation w.r.t. next day
-	y = db.to_discrete(y, -0.01, 0.01)
-	dataset['y'] = y
-
-	# Fill holes by average, from relevant records only (previous ones may contain holes due to windows spinning in)
-	db.check_dataset(dataset[dataset.columns.difference(['y'])].loc['2011-01-01':])
+	y_ref = dataset[['BTC']].copy().values
+	y_var = dataset['BTC'].pct_change(1).fillna(0) # variation w.r.t. next day
+	y = db.to_discrete_double(y_var, -0.01, 0.01)
+	y_label = db.discrete_label(y)
 
 	# Make data stationary by differencing
-	for col in ['BTC','BTC_High','BTC_Low','BTC_Open','BTC_adi','BTC_obv']:
-		#dataset[col] = db.to_variation(dataset[col].values, 1)
-		dataset[col] = db.to_difference(dataset[col].values, 1) # best results on LSTM
-		#dataset[col] = detrend(dataset[col].values, axis=-1, type='linear')
+	#for col in ['BTC','BTC_High','BTC_Low','BTC_Open','BTC_Volume']:
+		#diff = dataset[col].diff(periods=1).fillna(0)
+		#dataset[col] = diff
+
+	# Make data discrete
+	for col in ['BTC', 'BTC_High', 'BTC_Low', 'BTC_Open', 'BTC_Volume']:
+		change = dataset[col].pct_change(-1).fillna(0) # variatio w.r.t previous day
+		dataset[col] = db.to_discrete_double(change, -0.01, 0.01)
+
+	# Fill holes linearly [Breaks categorical]
+	#dataset = dataset.replace([np.inf, -np.inf], np.nan).interpolate(method='linear', axis=1)
+
 	# Normalize data
-	dataset = db.scale(dataset, ['y']) # Rescale everything but y in (0,1)
+	#scaler = StandardScaler()
+	#for col in ['BTC','BTC_Open','BTC_High','BTC_Low','BTC_Volume']:
+	#	reshaped = np.reshape(dataset[col].values, (-1,1))
+	#	dataset[col] = scaler.fit_transform(reshaped)
+
+	# Append target
+	dataset['y'] = y
 
 	# Save dataset and correlation matrix
 	dataset.to_csv('data/result/dataset.csv', sep=',', encoding='utf-8', index=True, index_label='Date')
-	dataset.corr().to_csv('data/result/dataset_corr.csv', sep=',', encoding='utf-8', index=True, index_label='index')
+	corr = dataset.corr()
+	corr.to_csv('data/result/dataset_corr.csv', sep=',', encoding='utf-8', index=True, index_label='index')
+	correlation(corr, 'data/result/dataset_corr.png')
 
 	# Print some rows to check everything is alright
-	pd.set_option('display.float_format', lambda x: '%.8f' % x)
-	dataset['y_var'] = db.to_variation(dataset['BTC'].values)
-	dataset['y_label'] = db.discrete_label(dataset['y'].values)
-	checkset = dataset[['BTC', 'y_var', 'y', 'y_label']].loc['2011-01-01':]
+	pd.set_option('display.float_format', lambda x: '%.12f' % x)
+	checkset = pd.DataFrame(index=dataset.index)
+	checkset['close'] = y_ref
+	checkset['y'] = y
+	checkset['y_var'] = y_var
+	checkset['y_label'] = y_label
 	checkset.to_csv('data/result/dataset_check.csv', sep=',', encoding='utf-8', index=True, index_label='Date')
-	print(checkset.head(12))
+	print(checkset.loc['2017-01-01':].head(12))
+
+	# Do LDA Test
+	#db.lda_reduction(dataset[dataset.columns.difference(['y'])].values, dataset['y'].values)
 
 	# Do ADF Test
 	adf = {}
 	non_stationary_cols_p = []
 	non_stationary_cols = []
-	for col in dataset.columns.difference(['y','y_label','y_var']):
+	for col in dataset.columns.difference(['y']):
 		reject, potential, res = db.adf_test(dataset.loc['2011-01-01':][col].values, 0.05, False)
 		adf[col] = res
 		if not reject:
 			non_stationary_cols.append(col)
 		if potential:
 			non_stationary_cols_p.append(col)
+	# Print ADF test results
 	print('Non stationary columns: [%s]' % ','.join(non_stationary_cols))
 	print('Potentially non stationary columns: [%s]' % ','.join(non_stationary_cols_p))
 	with open('data/result/dataset_adf.json', 'w') as fp:
