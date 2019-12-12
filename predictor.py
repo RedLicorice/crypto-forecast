@@ -4,17 +4,20 @@ from keras.layers import LSTM
 from keras.layers.core import Dense, Dropout
 from keras.optimizers import Adam
 from keras.utils import to_categorical
-from keras.regularizers import L1L2
-from sklearn.svm import SVC, SVR
+from keras.callbacks import Callback
+from sklearn.svm import SVC
+from sklearn.neural_network import MLPClassifier
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
-from math import ceil
+from statsmodels.tsa.stattools import adfuller
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, mean_squared_error
 import numpy as np
 from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
 from imblearn.over_sampling import SMOTE
 from imblearn.under_sampling import ClusterCentroids
 from sklearn.model_selection import TimeSeriesSplit
+import json
 
 def from_categorical(encoded):
 	res = []
@@ -22,7 +25,15 @@ def from_categorical(encoded):
 		datum = encoded[i]
 		decoded = np.argmax(encoded[i])
 		res.append(decoded)
-	return np.array(res)
+	return np.array(res) + 1 # +1 because keras' from_categoric encodes from 0 while our classes start from 1
+
+def get_unique_ratio(arr, _print=False):
+	total = max(1,len(arr))
+	unique, counts = np.unique(arr, return_counts=True)
+	if _print:
+		for cls,cnt in zip(unique,counts):
+			print("{} (class {}): count {} pct {}%".format(label, cls, cnt, cnt*100/total))
+	return {cls:(cnt, cnt*100/total) for cls,cnt in zip(unique,counts)}
 
 def add_lag(df, lag, exclude):
 	lags = range(1,lag)
@@ -46,6 +57,17 @@ def get_bench_dataset():
 	input['y'] = y
 	return input.sample(frac=1) # Shuffle the dataset
 
+# Logger class for Keras predictors
+class LossHistory(Callback):
+	def on_train_begin(self, logs=None):
+		self.losses = []
+
+	def on_batch_end(self, batch, logs=None):
+		if logs is None:
+			return
+		self.losses.append(logs.get('loss'))
+
+
 class Predictor:
 	basename ='predictor'
 	dataset = None
@@ -58,6 +80,13 @@ class Predictor:
 
 	def __init__(self):
 		pass
+
+	def params(self):
+		return {}
+
+	def label(self):
+		p = self.params()
+		return self.basename+'_'+'_'.join(['{}={}'.format(k,v) for k, v in p.items()])
 
 	def load_test(self, X, y):
 		self.X_test = X
@@ -79,18 +108,6 @@ class Predictor:
 		cc = ClusterCentroids(random_state=12)
 		return cc.fit_resample(X, y)
 
-	def print_input_stats(self):
-		self.print_unique_ratio("y_train", self.y_train)
-		self.print_unique_ratio("y_test", self.y_test)
-
-	def print_unique_ratio(self, label, arr):
-		if hasattr(arr, 'shape') and len(arr.shape) > 1 and arr.shape[1]:
-			arr = from_categorical(arr)
-		total = max(1,len(arr))
-		unique, counts = np.unique(arr, return_counts=True)
-		for cls,cnt in zip(unique,counts):
-			print("{} (class {}): count {} pct {}%".format(label, cls, cnt, cnt*100/total))
-
 	def compile(self):
 		# must return self.model
 		pass
@@ -98,46 +115,77 @@ class Predictor:
 	def fit(self):
 		pass
 
-	def evaluate(self):
-		pass
-
-	def evaluate_report(self, y_pred, y_test, index = None):
-		pf = pd.DataFrame.from_dict({
-			'predicted': np.reshape(y_pred, (-1,)),
-			'expected': y_test
-		})
-		pf.index = pd.RangeIndex() if index is None else index
-		pf.to_csv('{}_pred.csv'.format(self.basename), index_label='Date')
-
 	def predict(self):
 		if not self.model:
 			raise RuntimeError("No model compiled!")
 		testPredict = self.model.predict(self.X_test)
 		return testPredict
 
+	def evaluate(self):
+		y_pred = self.predict()
+		return y_pred, self.y_test
+
+
+class CategoricalPredictor(Predictor):
+	def load_test(self, X, y):
+		Predictor.load_test(self, X, y)
+		self.y_test = to_categorical(self.y_test - 1, num_classes=3)
+		self.X_test = self.X_test  # self.X_test.reshape((self.X_test.shape[0], 1, self.X_test.shape[1]))
+
+	def load_train(self, X, y, **kwargs):
+		Predictor.load_train(self, X, y, **kwargs)
+		self.y_train = to_categorical(self.y_train - 1, num_classes=3)
+		self.X_train = self.X_train  # self.X_train.reshape((self.X_train.shape[0], 1, self.X_train.shape[1]))
+
+	def predict(self):
+		y_pred = Predictor.predict(self)
+		return from_categorical(y_pred)
+
+	def evaluate(self):
+		y_pred = self.predict()
+		return y_pred, from_categorical(self.y_test)
+
 
 class SVCPredictor(Predictor):
 	basename ='svc'
+	kernel = 'rbf'
+	degree = 3
+	C = 1.0
+
+	def __init__(self, **kwargs):
+		self.kernel = kwargs.get('kernel', self.kernel)
+		self.C = kwargs.get('C', self.C)
+		self.degree = kwargs.get('degree', self.degree)
+		Predictor.__init__(self)
+
+	def params(self):
+		return {
+			'C': self.C,
+			'kernel': self.kernel,
+			'degree':self.degree,
+		}
 
 	def compile(self):
 		# Previously only had kernel = 'rbf
-		self.model = SVC(kernel='rbf')
+		self.model = SVC(C=self.C, kernel=self.kernel, degree=self.degree)
 		return self.model
 
 	def fit(self):
 		self.model.fit(self.X_train, self.y_train)
 
-	def evaluate(self, index=None):
-		y_pred = self.predict()
-		print(confusion_matrix(self.y_test, y_pred))
-		print(classification_report(self.y_test, y_pred))
-		print("Accuracy: {}".format(accuracy_score(self.y_test, y_pred)))
-		self.evaluate_report(y_pred, self.y_test, index)
-		return accuracy_score(self.y_test, y_pred)
-
 
 class KNNPredictor(Predictor):
 	basename ='knn'
+	n_neighbors = 3
+
+	def __init__(self, **kwargs):
+		self.n_neighbors = kwargs.get('n_neighbors', self.n_neighbors)
+		Predictor.__init__(self)
+
+	def params(self):
+		return {
+			'n_neighbors': self.n_neighbors
+		}
 
 	def compile(self):
 		self.model = KNeighborsClassifier(n_neighbors=3)
@@ -146,27 +194,98 @@ class KNNPredictor(Predictor):
 	def fit(self):
 		self.model.fit(self.X_train, self.y_train)
 
-	def evaluate(self, index=None):
-		y_pred = self.predict()
-		print(confusion_matrix(self.y_test, y_pred))
-		print(classification_report(self.y_test, y_pred))
-		print("Accuracy: {}".format(accuracy_score(self.y_test, y_pred)))
-		self.evaluate_report(y_pred, self.y_test, index)
-		return accuracy_score(self.y_test, y_pred)
 
+class MLPPredictor(Predictor):
+	basename ='mlp'
+	hidden_layer_sizes = (100,)
+	solver = 'adam'
+	learning_rate = 'constant'
+	learning_rate_init = 0.001
+	activation = 'relu'
 
-class NNPredictor(Predictor):
+	def __init__(self, **kwargs):
+		self.hidden_layer_sizes = kwargs.get('hidden_layer_sizes', self.hidden_layer_sizes)
+		self.solver = kwargs.get('solver', self.solver)
+		self.learning_rate = kwargs.get('learning_rate', self.learning_rate)
+		self.learning_rate_init = kwargs.get('learning_rate_init', self.learning_rate_init)
+		self.activation = kwargs.get('activation', self.activation)
+		Predictor.__init__(self)
+
+	def params(self):
+		return {
+			'hidden_layer_sizes': self.hidden_layer_sizes,
+			'solver': self.solver,
+			'learning_rate': self.learning_rate,
+			'learning_rate_init': self.learning_rate_init,
+			'activation': self.activation
+		}
+
+	def compile(self):
+		self.model = MLPClassifier(
+			activation=self.activation,
+			hidden_layer_sizes=self.hidden_layer_sizes,
+			learning_rate=self.learning_rate,
+			learning_rate_init=self.learning_rate_init,
+			solver=self.solver
+		)
+		return self.model
+
+	def fit(self):
+		self.model.fit(self.X_train, self.y_train)
+
+"""
+## Commented because IDK what he wants as input format
+class ExpSmoothPredictor(Predictor):
+	basename ='expsmooth'
+	alpha = None
+	beta = None
+	seasonal_periods = 5
+
+	def __init__(self, **kwargs):
+		self.alpha = kwargs.get('alpha', self.alpha)
+		self.beta = kwargs.get('beta', self.beta)
+		self.seasonal_periods = kwargs.get('seasonal_periods', self.beta)
+		Predictor.__init__(self)
+
+	def params(self):
+		return {
+			'alpha': self.alpha,
+			'beta': self.beta,
+			'seasonal_periods': self.seasonal_periods
+		}
+
+	def compile(self):
+		r = adfuller(self.X_train.values) if self.X_train.size > 6 else adfuller(self.X_train.values, maxlag=4)
+		pvalue = r[1]
+		if pvalue < 0.05:
+			self.model = ExponentialSmoothing(self.X_train, trend=None, seasonal=None)
+		else:
+			self.model = ExponentialSmoothing(self.X_train, trend='additive', seasonal='additive',
+											  seasonal_periods=self.seasonal_periods)
+		return self.model
+
+	def fit(self):
+		self.model.fit(smoothing_level=self.alpha, smoothing_slope=self.beta)
+"""
+
+class NNPredictor(CategoricalPredictor):
 	basename ='nn'
+	learning_rate = 0.001
+	batch_size = 32
+	epochs = 100
 
-	def load_test(self, X, y):
-		Predictor.load_test(self, X, y)
-		self.y_test = to_categorical(self.y_test - 1, num_classes=3)
-		self.X_test = self.X_test # self.X_test.reshape((self.X_test.shape[0], 1, self.X_test.shape[1]))
+	def __init__(self, **kwargs):
+		self.learning_rate = kwargs.get('learning_rate', self.learning_rate)
+		self.batch_size = kwargs.get('batch_size', self.batch_size)
+		self.epochs = kwargs.get('epochs', self.epochs)
+		CategoricalPredictor.__init__(self)
 
-	def load_train(self, X, y, **kwargs):
-		Predictor.load_train(self, X, y, **kwargs)
-		self.y_train = to_categorical(self.y_train - 1, num_classes=3)
-		self.X_train = self.X_train # self.X_train.reshape((self.X_train.shape[0], 1, self.X_train.shape[1]))
+	def params(self):
+		return {
+			'learning_rate':self.learning_rate,
+			'batch_size':self.batch_size,
+			'epochs':self.epochs
+		}
 
 	def compile(self):
 		# one hot encode output
@@ -186,32 +305,39 @@ class NNPredictor(Predictor):
 						input_dim=self.X_train.shape[1] # input dimension = number of features
 						)
 				  )
-
-		self.model.compile(optimizer='adam',
-					  loss='binary_crossentropy',
-					  metrics=['accuracy'])
+		optimizer = Adam(learning_rate=self.learning_rate)
+		self.model.compile(optimizer=optimizer, loss='categorical_crossentropy')
 		return self.model
 
 	def fit(self):
 		if self.model is None:
 			raise RuntimeError("No model compiled!")
-		self.model.fit(self.X_train, self.y_train, epochs=100, batch_size=64, verbose=0, validation_data=(self.X_test, self.y_test))
-
-	def evaluate(self, index = None):
-		scores = self.model.evaluate(self.X_test, self.y_test, verbose=0)
-		print("Accuracy: {}%".format(scores[1]*100))
-		y_pred = self.predict()
-		self.evaluate_report(from_categorical(y_pred), from_categorical(self.y_test), index)
-		return scores[1]
+		self.history = LossHistory()
+		self.model.fit(self.X_train, self.y_train, epochs=self.epochs, batch_size=self.batch_size, verbose=0,
+					   callbacks=[self.history])
 
 
-class LSTMPredictor(Predictor):
+class LSTMPredictor(CategoricalPredictor):
 	basename ='lstm'
 	timesteps = 1
+	learning_rate = 0.001
+	batch_size = 32
+	epochs = 100
 
-	def __init__(self, timesteps = 1):
-		self.timesteps = timesteps
-		Predictor.__init__(self)
+	def __init__(self, **kwargs):
+		self.timesteps = kwargs.get('timesteps', self.timesteps)
+		self.learning_rate = kwargs.get('learning_rate', self.learning_rate)
+		self.batch_size = kwargs.get('batch_size', self.batch_size)
+		self.epochs = kwargs.get('epochs', self.epochs)
+		CategoricalPredictor.__init__(self)
+
+	def params(self):
+		return {
+			'timesteps':self.timesteps,
+			'learning_rate':self.learning_rate,
+			'batch_size':self.batch_size,
+			'epochs':self.epochs
+		}
 
 	def split_sequences(self, X, y, n_steps):
 		_X, _y = [], []
@@ -244,76 +370,108 @@ class LSTMPredictor(Predictor):
 		self.model = Sequential()
 		self.model.add(LSTM(50, input_shape=(self.timesteps, self.X_train.shape[2]), activation='tanh'))
 		self.model.add(Dropout(0.2))
-		self.model.add(Dense(3, activation='sigmoid')) # Should match number of categories
-		optimizer = Adam(learning_rate=0.0001)
-		self.model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=['accuracy','mse'])
+		self.model.add(Dense(3, activation='softmax'))
+		optimizer = Adam(learning_rate=self.learning_rate)
+		self.model.compile(loss='categorical_crossentropy', optimizer=optimizer)
 		return self.model
 
 	def fit(self):
 		if self.model is None:
 			raise RuntimeError("No model compiled!")
+		self.history = LossHistory()
 		#In Keras the internal state is reset at the end of each batch
 		# Batch size therefore represents how many states will be kept in memory.
 		# Epochs, instead, determines how many times the model will be run through the training set.
-		self.model.fit(self.X_train, self.y_train, epochs=100, batch_size=32, verbose=1)
-
-	def evaluate(self, index = None):
-		scores = self.model.evaluate(self.X_test, self.y_test, verbose=0)
-		print("Accuracy: {}% MSE: {}".format(scores[1]*100, scores[2]))
-		y_pred = self.predict()
-
-		self.evaluate_report(from_categorical(y_pred), from_categorical(self.y_test), index[self.timesteps-1:])
-		return scores[1]
+		self.model.fit(self.X_train, self.y_train, epochs=self.epochs, batch_size=self.batch_size, verbose=0,
+					   callbacks=[self.history])
 
 
 if __name__ == '__main__':
+	def get_classifiers():
+		return [
+			SVCPredictor(kernel='rbf'),
+			MLPPredictor(hidden_layer_sizes=(100,), solver='adam'),
+			MLPPredictor(hidden_layer_sizes=(500,), solver='adam'),
+			MLPPredictor(hidden_layer_sizes=(1000,), solver='adam'),
+			MLPPredictor(hidden_layer_sizes=(100,), solver='sgd'),
+			MLPPredictor(hidden_layer_sizes=(500,), solver='sgd'),
+			MLPPredictor(hidden_layer_sizes=(1000,), solver='sgd'),
+			#KNNPredictor(),
+			NNPredictor(),
+			#LSTMPredictor(timesteps=7),
+			#LSTMPredictor(timesteps=7, learning_rate=0.0005),
+			#LSTMPredictor(timesteps=7,batch_size=300),
+			LSTMPredictor(timesteps=7, learning_rate=0.0005, batch_size=300)
+		]
 
 	def expanding_window(df):
-		p = LSTMPredictor(timesteps=7)
 		df = df.loc['2011-01-01':]
 		X = df.loc[:, df.columns != 'y'].values
 		Y = df['y'].values
 
 		n_split = 8
-		step = 1
-		for train_index, test_index in TimeSeriesSplit(n_splits=n_split).split(df):
-			print("Expanding window validation step: %d of %d" % (step, n_split))
-			x_train, y_train = X[train_index], Y[train_index]
-			x_test, y_test = X[test_index], Y[test_index]
-			p.load_train(x_train, y_train, oversample=True)
-			p.load_test(x_test, y_test)
-			model = p.compile()
-			p.fit()
-			p.evaluate(test_index)
-			step += 1
+		classifiers = get_classifiers()
+		results = {c.label():{'classifier':c,'results':{},'losses':{}} for i,c in enumerate(classifiers)}
+		for i,p in enumerate(classifiers):
+			step = 1
+			for train_index, test_index in TimeSeriesSplit(n_splits=n_split).split(df):
+				#print("Expanding window validation step: %d of %d" % (step, n_split))
+				x_train, y_train = X[train_index], Y[train_index]
+				x_test, y_test = X[test_index], Y[test_index]
+				p.load_train(x_train, y_train)
+				p.load_test(x_test, y_test)
+				model = p.compile()
+				p.fit()
+				results[p.label()]['results'][step] = p.evaluate()
+				results[p.label()]['losses'][step] = p.history.losses if hasattr(p, 'history') else []
+				step += 1
+		return results
 
 	def holdout(df):
-		p = LSTMPredictor()
-		test, train = train_test_split(df.loc['2016-01-01':'2018-01-01'], train_size=0.6)
-		print("Training set size:", train.shape[0])
-		print(train.head())
-		print("Test set size:", test.shape[0])
-		print(test.head())
+		classifiers = get_classifiers()
+		results = {c.label(): {'classifier': c, 'results':{}, 'losses':{}} for i, c in enumerate(classifiers)}
+		for i, p in enumerate(classifiers):
+			test, train = train_test_split(df, train_size=0.6)
+			#print("Training set size:", train.shape[0])
+			#print(train.head())
+			#print("Test set size:", test.shape[0])
+			#print(test.head())
 
-		p.load_train(train.loc[:, train.columns != 'y'].values, train['y'].values, oversample=True)
-		p.load_test(test.loc[:, test.columns != 'y'].values, test['y'].values)
-		p.print_input_stats()
-		p.compile()
-		p.fit()
-		p.evaluate(test.index)
+			p.load_train(train.loc[:, train.columns != 'y'].values, train['y'].values)
+			p.load_test(test.loc[:, test.columns != 'y'].values, test['y'].values)
 
-		validation = df.loc['2011-01-01':'2015-01-01']
-
-		p.load_test(validation.loc[:, validation.columns != 'y'].values, validation['y'].values)
-		p.evaluate(validation.index)
-
+			p.compile()
+			p.fit()
+			results[p.label()]['results'][0] = p.evaluate()
+			results[p.label()]['losses'][0] = p.history.losses if hasattr(p, 'history') else []
+		return results
 
 	# fix random seed for reproducibility
 	np.random.seed(5)
 
-
 	df = pd.read_csv("data/result/dataset.csv", sep=',', encoding='utf-8', index_col='Date')
-	# df = add_lag(df, 14, ['y'])
-	expanding_window(df)
+	df = add_lag(df, 14, ['y']).fillna(0)
+	predictions = holdout(df.loc['2016-01-01':'2018-01-01'])
+	with open('data/result/dataset_prediction_report.txt', 'w') as fp:
+		for label, info in predictions.items():
+			c = info['classifier']
+			r = info['results']
+			l = info['losses']
+			fp.write('==== Classifier: {} ====\n'.format(c.label()))
+			for k,v in c.params().items():
+				fp.write('{}={}\n'.format(k,v))
+			fp.write('\n')
+			for period, (y_pred, y) in r.items():
+				fp.write('Period: {}\n'.format(period))
+				if l and period in l:
+					fp.write('Loss history: {}\n'.format(', '.join([str(x) for x in l[period]])))
+				fp.write('Accuracy: {}%\n'.format(accuracy_score(y, y_pred)*100))
+				fp.write('MSE: {}\n'.format(mean_squared_error(y, y_pred)))
+				fp.write('Confusion Matrix:\n{}\n'.format(confusion_matrix(y, y_pred)))
+				fp.write('Classification report:\n{}\n'.format(classification_report(y, y_pred, zero_division=0)))
+				for cls,(cnt, pct) in get_unique_ratio(y_pred).items():
+					fp.write('Result class [{}] count={} pct={}%\n'.format(cls,cnt,pct))
+				fp.write('\n')
+			fp.write('\n')
 
 	print("Done")

@@ -259,7 +259,7 @@ class DatasetBuilder:
 		for col in df.columns:
 			self.check_integrity(df, col)
 
-	def check_integrity(self, df, col, fix=True):
+	def check_integrity(self, df, col):
 		for i,v in enumerate(df[col].values):
 			if not v:
 				print("{} contains zeroes at index {} - {}".format(col, i, df.index[i]))
@@ -306,7 +306,10 @@ if __name__ == '__main__':
 
 	# Add Y
 	y_ref = dataset[['BTC']].copy().values
-	y_var = dataset['BTC'].pct_change(1).fillna(0) # variation w.r.t. next day
+	# Variation w.r.t. next period
+	# calculated as variation w.r.t previous period, shifted backwards by 1.
+	# NaN's are filled by last valid value.
+	y_var = np.roll(dataset['BTC'].pct_change(1, fill_method='ffill').fillna(0), -1)
 	y = db.to_discrete_double(y_var, -0.01, 0.01)
 	y_label = db.discrete_label(y)
 
@@ -316,9 +319,17 @@ if __name__ == '__main__':
 		#dataset[col] = diff
 
 	# Make data discrete
+	discretization_refs = {}
 	for col in ['BTC', 'BTC_High', 'BTC_Low', 'BTC_Open', 'BTC_Volume']:
-		change = dataset[col].pct_change(-1).fillna(0) # variatio w.r.t previous day
-		dataset[col] = db.to_discrete_double(change, -0.01, 0.01)
+		# variation w.r.t previous period
+		c_var = dataset[col].pct_change(1, fill_method='ffill').fillna(0)
+		c = db.to_discrete_double(c_var, -0.01, 0.01)
+		discretization_refs[col + '_ref'] = dataset[col].copy()
+		discretization_refs[col + '_var'] = c_var
+		discretization_refs[col + '_class'] = c
+		discretization_refs[col + '_label'] = db.discrete_label(c_var)
+		dataset[col] = c
+		db.check_integrity(dataset, col)
 
 	# Fill holes linearly [Breaks categorical]
 	#dataset = dataset.replace([np.inf, -np.inf], np.nan).interpolate(method='linear', axis=1)
@@ -341,6 +352,8 @@ if __name__ == '__main__':
 	# Print some rows to check everything is alright
 	pd.set_option('display.float_format', lambda x: '%.12f' % x)
 	checkset = pd.DataFrame(index=dataset.index)
+	for name, series in discretization_refs.items():
+		checkset[name] = series
 	checkset['close'] = y_ref
 	checkset['y'] = y
 	checkset['y_var'] = y_var
