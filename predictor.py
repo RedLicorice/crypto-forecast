@@ -8,6 +8,7 @@ from keras.callbacks import Callback
 from sklearn.svm import SVC
 from sklearn.neural_network import MLPClassifier
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.preprocessing import MinMaxScaler
 from statsmodels.tsa.stattools import adfuller
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, mean_squared_error
@@ -18,7 +19,7 @@ from imblearn.over_sampling import SMOTE
 from imblearn.under_sampling import ClusterCentroids
 from sklearn.model_selection import TimeSeriesSplit
 import json
-
+from matplotlib import pyplot as plt
 def from_categorical(encoded):
 	res = []
 	for i in range(encoded.shape[0]):
@@ -56,16 +57,6 @@ def get_bench_dataset():
 	input = pd.DataFrame(scaled, columns=df.columns, index=df.index)
 	input['y'] = y
 	return input.sample(frac=1) # Shuffle the dataset
-
-# Logger class for Keras predictors
-class LossHistory(Callback):
-	def on_train_begin(self, logs=None):
-		self.losses = []
-
-	def on_batch_end(self, batch, logs=None):
-		if logs is None:
-			return
-		self.losses.append(logs.get('loss'))
 
 
 class Predictor:
@@ -273,6 +264,7 @@ class NNPredictor(CategoricalPredictor):
 	learning_rate = 0.001
 	batch_size = 32
 	epochs = 100
+	metrics = ['acc', 'mse', 'mae', 'mape']
 
 	def __init__(self, **kwargs):
 		self.learning_rate = kwargs.get('learning_rate', self.learning_rate)
@@ -306,15 +298,13 @@ class NNPredictor(CategoricalPredictor):
 						)
 				  )
 		optimizer = Adam(learning_rate=self.learning_rate)
-		self.model.compile(optimizer=optimizer, loss='categorical_crossentropy')
+		self.model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=self.metrics)
 		return self.model
 
 	def fit(self):
 		if self.model is None:
 			raise RuntimeError("No model compiled!")
-		self.history = LossHistory()
-		self.model.fit(self.X_train, self.y_train, epochs=self.epochs, batch_size=self.batch_size, verbose=0,
-					   callbacks=[self.history])
+		self.model.fit(self.X_train, self.y_train, epochs=self.epochs, batch_size=self.batch_size, verbose=0)
 
 
 class LSTMPredictor(CategoricalPredictor):
@@ -323,6 +313,7 @@ class LSTMPredictor(CategoricalPredictor):
 	learning_rate = 0.001
 	batch_size = 32
 	epochs = 100
+	metrics = ['acc', 'mse', 'mae', 'mape']
 
 	def __init__(self, **kwargs):
 		self.timesteps = kwargs.get('timesteps', self.timesteps)
@@ -372,36 +363,79 @@ class LSTMPredictor(CategoricalPredictor):
 		self.model.add(Dropout(0.2))
 		self.model.add(Dense(3, activation='softmax'))
 		optimizer = Adam(learning_rate=self.learning_rate)
-		self.model.compile(loss='categorical_crossentropy', optimizer=optimizer)
+		self.model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=self.metrics)
 		return self.model
 
-	def fit(self):
+	def fit(self, plot=False, to_file=None):
 		if self.model is None:
 			raise RuntimeError("No model compiled!")
-		self.history = LossHistory()
+
 		#In Keras the internal state is reset at the end of each batch
 		# Batch size therefore represents how many states will be kept in memory.
 		# Epochs, instead, determines how many times the model will be run through the training set.
-		self.model.fit(self.X_train, self.y_train, epochs=self.epochs, batch_size=self.batch_size, verbose=0,
-					   callbacks=[self.history])
+		history = self.model.fit(self.X_train, self.y_train, epochs=self.epochs, batch_size=self.batch_size, verbose=0)
+
+		df = pd.DataFrame.from_dict(history.history)
+
+		# Scale and print graph
+		scaler = MinMaxScaler(feature_range=(0,1))
+		df[df.columns] = scaler.fit_transform(df[df.columns])
+		df['epoch'] = history.epoch
+		#ax = plt.gca()
+		plot = df.plot(
+			kind='line',
+			x='epoch',
+			y=self.metrics + ['loss'],
+			#ax=ax,
+			figsize=(16,9)
+		)
+		plt.title(self.label())
+		plt.savefig('plots/pred/{}.png'.format(self.label()), dpi=300)
+		#plt.legend(['train', 'test'], loc='upper left')
+
+
+## Represents a prediction job
+# encapsulates test/train datasets
+class Job:
+	X, y = None, None
+	predictions = None
+	parameters = None
+
+	def __init__(self, df, classifier):
+		self.X = df.loc[:, df.columns != 'y'].values
+		self.y = df['y'].values
+
+	def holdout(self):
+		pass
+
+	def expanding_window(self):
+		pass
+
+	def plot_result(self):
+		pass
 
 
 if __name__ == '__main__':
 	def get_classifiers():
 		return [
 			SVCPredictor(kernel='rbf'),
-			MLPPredictor(hidden_layer_sizes=(100,), solver='adam'),
-			MLPPredictor(hidden_layer_sizes=(500,), solver='adam'),
-			MLPPredictor(hidden_layer_sizes=(1000,), solver='adam'),
-			MLPPredictor(hidden_layer_sizes=(100,), solver='sgd'),
-			MLPPredictor(hidden_layer_sizes=(500,), solver='sgd'),
-			MLPPredictor(hidden_layer_sizes=(1000,), solver='sgd'),
+			#SVCPredictor(kernel='rbf', C=5.0), # Accuracy decreases
+			#SVCPredictor(kernel='rbf', C=10.0), # Accuracy decreases
+			#SVCPredictor(kernel='rbf', C=100.0), # Accuracy decreases
+			#SVCPredictor(kernel='rbf', C=1000.0), # Accuracy decreases
+			#MLPPredictor(hidden_layer_sizes=(100,), solver='adam'),
+			#MLPPredictor(hidden_layer_sizes=(500,), solver='adam'),
+			#MLPPredictor(hidden_layer_sizes=(1000,), solver='adam'),
+			#MLPPredictor(hidden_layer_sizes=(100,), solver='sgd'),
+			#MLPPredictor(hidden_layer_sizes=(500,), solver='sgd'),
+			#MLPPredictor(hidden_layer_sizes=(1000,), solver='sgd'),
 			#KNNPredictor(),
-			NNPredictor(),
+			#NNPredictor(),
 			#LSTMPredictor(timesteps=7),
 			#LSTMPredictor(timesteps=7, learning_rate=0.0005),
 			#LSTMPredictor(timesteps=7,batch_size=300),
-			LSTMPredictor(timesteps=7, learning_rate=0.0005, batch_size=300)
+			LSTMPredictor(timesteps=7, learning_rate=0.0005, batch_size=30, epochs=300),
+			LSTMPredictor(timesteps=14, learning_rate=0.0005, batch_size=30, epochs=300),
 		]
 
 	def expanding_window(df):
@@ -427,11 +461,11 @@ if __name__ == '__main__':
 				step += 1
 		return results
 
-	def holdout(df):
+	def holdout(df, _train_sz=0.7):
 		classifiers = get_classifiers()
 		results = {c.label(): {'classifier': c, 'results':{}, 'losses':{}} for i, c in enumerate(classifiers)}
 		for i, p in enumerate(classifiers):
-			test, train = train_test_split(df, train_size=0.6)
+			test, train = train_test_split(df, train_size=_train_sz)
 			#print("Training set size:", train.shape[0])
 			#print(train.head())
 			#print("Test set size:", test.shape[0])
@@ -450,8 +484,10 @@ if __name__ == '__main__':
 	np.random.seed(5)
 
 	df = pd.read_csv("data/result/dataset.csv", sep=',', encoding='utf-8', index_col='Date')
-	df = add_lag(df, 14, ['y']).fillna(0)
+	#df = add_lag(df, 14, ['y']).fillna(0)
 	predictions = holdout(df.loc['2016-01-01':'2018-01-01'])
+
+	# Save predictions report
 	with open('data/result/dataset_prediction_report.txt', 'w') as fp:
 		for label, info in predictions.items():
 			c = info['classifier']

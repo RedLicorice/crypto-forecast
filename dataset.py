@@ -104,7 +104,8 @@ class DatasetBuilder:
 		df[symbol+'_tsi'] = true_strength_index(df[col_close].values)
 
 		# Stochastic Oscillator
-		df[symbol+'_stoch'] = percent_k(df[col_high].values, df[col_low].values, df[col_close].values, 14)
+		df[symbol+'_stoch'] = percent_k(df[col_close].values, 14)
+		#df[symbol+'_stoch'] = percent_k(df[col_high].values, df[col_low].values, df[col_close].values, 14)
 
 		# Chande Momentum Oscillator
 		## Not available in ta
@@ -117,13 +118,13 @@ class DatasetBuilder:
 		df[symbol+'_pvo'] = volume_oscillator(df[col_volume].values, 12, 26)
 
 		# Force Index
-		#fi = force_index(df[col_close].values, df[col_volume].values)
-		#df[symbol+'_fi13'] = exponential_moving_average(fi, 13)
-		#df[symbol+'_fi50'] = exponential_moving_average(fi, 50)
+		fi = force_index(df[col_close].values, df[col_volume].values)
+		df[symbol+'_fi13'] = exponential_moving_average(fi, 13)
+		df[symbol+'_fi50'] = exponential_moving_average(fi, 50)
 
 		# Accumulation Distribution Line
 		df[symbol+'_adi'] = accumulation_distribution(df[col_close].values,  df[col_high].values, df[col_low].values,
-													  df[col_volume].values, ignore_errors=True)
+													  df[col_volume].values)
 
 		# On Balance Volume
 		df[symbol+'_obv'] = on_balance_volume(df[col_close].values, df[col_volume].values)
@@ -149,8 +150,8 @@ class DatasetBuilder:
 			df[symbol + '_cmo'] = self.to_discrete_double(df[symbol + '_cmo'], -50, 50)
 			df[symbol + '_atrp'] = self.to_discrete_single(df[symbol + '_atrp'], 30)
 			df[symbol + '_pvo'] = self.to_discrete_single(df[symbol + '_pvo'], 0)
-			#df[symbol + '_fi13'] = self.to_discrete_single(df[symbol + '_fi13'], 0)
-			#df[symbol + '_fi50'] = self.to_discrete_single(df[symbol + '_fi50'], 0)
+			df[symbol + '_fi13'] = self.to_discrete_single(df[symbol + '_fi13'], 0)
+			df[symbol + '_fi50'] = self.to_discrete_single(df[symbol + '_fi50'], 0)
 			df[symbol + '_adi'] = self.to_discrete_single(df[symbol + '_adi'], 0)
 			df[symbol + '_obv'] = self.to_discrete_single(df[symbol + '_obv'], 0)
 		return df

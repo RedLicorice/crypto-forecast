@@ -34,15 +34,26 @@ def lineplot(df, y, _scale = False):
 	save_plot('_'.join(y))
 	plt.show()
 
-def correlation(corr, save_to=None):
+def correlation(corr, save_to=None, _figsz=(12,8)):
 	# Set up the matplotlib figure
-	f, ax = plt.subplots(figsize=(40, 42))
+	f, ax = plt.subplots(figsize=_figsz)
 	# Generate a custom diverging colormap
 	cmap = sns.diverging_palette(220, 10, as_cmap=True)
 	# Plot correlation matrix
 	sns.heatmap(data=corr.round(2), annot=True, cmap=cmap, square=True, linewidths=.5, cbar_kws={"shrink": .5})
 	if save_to:
-		plt.savefig(save_to, dpi=300)
+		plt.savefig(save_to, dpi=120)
+	plt.show()
+
+def scatter(df, xcol, ycol, save_to=None, _figsz=(12,8)):
+	# Set up the matplotlib figure
+	f, ax = plt.subplots(figsize=_figsz)
+	# Generate a custom diverging colormap
+	cmap = sns.diverging_palette(220, 10, as_cmap=True)
+	# Plot correlation matrix
+	sns.scatterplot(data=df, x=xcol, y=ycol, cmap=cmap)
+	if save_to:
+		plt.savefig(save_to, dpi=120)
 	plt.show()
 
 def save_plot(name):
@@ -50,6 +61,8 @@ def save_plot(name):
 	plt.savefig('plots/plot_{}.png'.format(name), dpi=300)
 
 if __name__ == '__main__':
+	data = pd.read_csv('data/result/dataset_alt_corr.csv', sep=',', encoding='utf-8', index_col='index')
+	scatter(data, '', '', 'data/result/dataset_alt_corr.png')
 	data = pd.read_csv('data/result/dataset_alt_corr.csv', sep=',', encoding='utf-8', index_col='index')
 	correlation(data, 'data/result/dataset_alt_corr.png')
 	# data['Date'] = pd.to_datetime(data['Date'])
