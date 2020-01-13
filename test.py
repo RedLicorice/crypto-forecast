@@ -1,7 +1,7 @@
 import logging
 from lib.log import logger
 from lib.symbol import Symbol
-from lib.models import ARIMAModel
+from lib.models import ARIMAModel, SVCModel, ExpSmoothModel
 from lib.job import Job
 import pandas as pd
 
@@ -21,7 +21,7 @@ s = Symbol('BTC', ohlcv=df, column_map={
     'volume': 'BTC_Volume'
 })
 
-m = ARIMAModel(params={'disp': True})
+m = ExpSmoothModel()
 j = Job(symbol=s, model=m)
 reports = j.grid_search(range=('2016-12-14', '2016-12-31'), multiprocessing=True)
 r = min(reports)

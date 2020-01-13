@@ -21,10 +21,10 @@ class Job:
             x, y = self.symbol.get_xy(DatasetType.OHLCV)
 
         elif self.model.is_type(ModelType.CONTINUOUS_PRICE_PCT):
-            x, y =  self.symbol.get_dataset(DatasetType.OHLCV_PCT)
+            x, y =  self.symbol.get_xy(DatasetType.OHLCV_PCT)
 
         elif self.model.is_type(ModelType.DISCRETE):
-            x, y = self.symbol.get_dataset(DatasetType.DISCRETE_TA)
+            x, y = self.symbol.get_xy(DatasetType.DISCRETE_TA)
 
         if self.model.is_type(ModelType.UNIVARIATE):
             x = x[kwargs.get('univariate_target','close')]
@@ -47,7 +47,7 @@ class Job:
             x_test, x_val, y_test, y_val = train_test_split(x, y, # Data is already shuffled if need be
                                                              test_size=kwargs.get('validation_size', 0.2))
         # Fit the model (on the train set) and make a prediction (on the test set)
-        if self.model.fit(x_train.values, y_train.values):
+        if self.model.fit(x_train.values, y=y_train.values):
             pred = self.model.predict(x_test.values)
             # Validate the model if needed
             # Plot results
@@ -66,8 +66,8 @@ class Job:
                                                              train_size=kwargs.get('train_size', 0.7),
                                                              shuffle=kwargs.get('shuffle',False))
 
-        configs = self.model.get_grid_search_configs(x_train=x_train, x_test=x_test)
-        configs = configs[:8]
+        configs = self.model.get_grid_search_configs(x_train=x_train, x_test=x_test, y_train=y_train, y_test=y_test)
+        #configs = configs[:8]
         # Parallelize
         if kwargs.get('multiprocessing', False):
             with Pool(cpu_count()) as pool:
