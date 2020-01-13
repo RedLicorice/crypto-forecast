@@ -20,6 +20,7 @@ from imblearn.under_sampling import ClusterCentroids
 from sklearn.model_selection import TimeSeriesSplit
 import json
 from matplotlib import pyplot as plt
+from plotter import scatter
 def from_categorical(encoded):
 	res = []
 	for i in range(encoded.shape[0]):
@@ -75,9 +76,13 @@ class Predictor:
 	def params(self):
 		return {}
 
-	def label(self):
+	def __repr__(self):
 		p = self.params()
 		return self.basename+'_'+'_'.join(['{}={}'.format(k,v) for k, v in p.items()])
+
+	def label(self):
+		p = self.params()
+		return self.basename + '_' + '_'.join(['{}={}'.format(k, v) for k, v in p.items()])
 
 	def load_test(self, X, y):
 		self.X_test = X
@@ -313,7 +318,7 @@ class LSTMPredictor(CategoricalPredictor):
 	learning_rate = 0.001
 	batch_size = 32
 	epochs = 100
-	metrics = ['acc', 'mse', 'mae', 'mape']
+	metrics = ['acc', 'mean_squared_error', 'mean_absolute_error', 'mean_absolute_percentage_error']
 
 	def __init__(self, **kwargs):
 		self.timesteps = kwargs.get('timesteps', self.timesteps)
@@ -362,7 +367,7 @@ class LSTMPredictor(CategoricalPredictor):
 		self.model.add(LSTM(50, input_shape=(self.timesteps, self.X_train.shape[2]), activation='tanh'))
 		self.model.add(Dropout(0.2))
 		self.model.add(Dense(3, activation='softmax'))
-		optimizer = Adam(learning_rate=self.learning_rate)
+		optimizer = Adam(lr=self.learning_rate)
 		self.model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=self.metrics)
 		return self.model
 
@@ -393,28 +398,6 @@ class LSTMPredictor(CategoricalPredictor):
 		plt.savefig('plots/pred/{}.png'.format(self.label()), dpi=300)
 		#plt.legend(['train', 'test'], loc='upper left')
 
-
-## Represents a prediction job
-# encapsulates test/train datasets
-class Job:
-	X, y = None, None
-	predictions = None
-	parameters = None
-
-	def __init__(self, df, classifier):
-		self.X = df.loc[:, df.columns != 'y'].values
-		self.y = df['y'].values
-
-	def holdout(self):
-		pass
-
-	def expanding_window(self):
-		pass
-
-	def plot_result(self):
-		pass
-
-
 if __name__ == '__main__':
 	def get_classifiers():
 		return [
@@ -434,8 +417,8 @@ if __name__ == '__main__':
 			#LSTMPredictor(timesteps=7),
 			#LSTMPredictor(timesteps=7, learning_rate=0.0005),
 			#LSTMPredictor(timesteps=7,batch_size=300),
-			LSTMPredictor(timesteps=7, learning_rate=0.0005, batch_size=30, epochs=300),
-			LSTMPredictor(timesteps=14, learning_rate=0.0005, batch_size=30, epochs=300),
+			#LSTMPredictor(timesteps=7, learning_rate=0.0005, batch_size=30, epochs=300),
+			#LSTMPredictor(timesteps=14, learning_rate=0.0005, batch_size=30, epochs=300),
 		]
 
 	def expanding_window(df):
@@ -504,7 +487,7 @@ if __name__ == '__main__':
 				fp.write('Accuracy: {}%\n'.format(accuracy_score(y, y_pred)*100))
 				fp.write('MSE: {}\n'.format(mean_squared_error(y, y_pred)))
 				fp.write('Confusion Matrix:\n{}\n'.format(confusion_matrix(y, y_pred)))
-				fp.write('Classification report:\n{}\n'.format(classification_report(y, y_pred, zero_division=0)))
+				fp.write('Classification report:\n{}\n'.format(classification_report(y, y_pred)))
 				for cls,(cnt, pct) in get_unique_ratio(y_pred).items():
 					fp.write('Result class [{}] count={} pct={}%\n'.format(cls,cnt,pct))
 				fp.write('\n')

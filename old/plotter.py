@@ -34,7 +34,7 @@ def lineplot(df, y, _scale = False):
 	save_plot('_'.join(y))
 	plt.show()
 
-def correlation(corr, save_to=None, _figsz=(12,8)):
+def correlation(corr, save_to=None, _figsz=(16,9)):
 	# Set up the matplotlib figure
 	f, ax = plt.subplots(figsize=_figsz)
 	# Generate a custom diverging colormap
@@ -42,18 +42,18 @@ def correlation(corr, save_to=None, _figsz=(12,8)):
 	# Plot correlation matrix
 	sns.heatmap(data=corr.round(2), annot=True, cmap=cmap, square=True, linewidths=.5, cbar_kws={"shrink": .5})
 	if save_to:
-		plt.savefig(save_to, dpi=120)
+		plt.savefig(save_to, dpi=72)
 	plt.show()
 
-def scatter(df, xcol, ycol, save_to=None, _figsz=(12,8)):
+def scatter(xcol, ycol, save_to=None, _figsz=(16,9)):
 	# Set up the matplotlib figure
 	f, ax = plt.subplots(figsize=_figsz)
 	# Generate a custom diverging colormap
 	cmap = sns.diverging_palette(220, 10, as_cmap=True)
 	# Plot correlation matrix
-	sns.scatterplot(data=df, x=xcol, y=ycol, cmap=cmap)
+	sns.scatterplot(x=xcol, y=ycol, cmap=cmap)
 	if save_to:
-		plt.savefig(save_to, dpi=120)
+		plt.savefig(save_to, dpi=300)
 	plt.show()
 
 def save_plot(name):
@@ -61,10 +61,10 @@ def save_plot(name):
 	plt.savefig('plots/plot_{}.png'.format(name), dpi=300)
 
 if __name__ == '__main__':
-	data = pd.read_csv('data/result/dataset_alt_corr.csv', sep=',', encoding='utf-8', index_col='index')
-	scatter(data, '', '', 'data/result/dataset_alt_corr.png')
-	data = pd.read_csv('data/result/dataset_alt_corr.csv', sep=',', encoding='utf-8', index_col='index')
-	correlation(data, 'data/result/dataset_alt_corr.png')
+	data = pd.read_csv('data/atsa2017/BTC_discrete.csv', sep=',', encoding='utf-8', index_col=0)
+	correlation(data.corr(), 'data/result/dataset_atsa.png')
+	data = pd.read_csv('data/result/dataset.csv', sep=',', encoding='utf-8', index_col='Date', parse_dates=True)
+	correlation(data.loc['2017-01-01':'2018-01-01'].corr(), 'data/result/dataset.png')
 	# data['Date'] = pd.to_datetime(data['Date'])
 	#lineplot(data, ['BTC','BTC_DiffMean', 'BTC_AdrActCnt','BTC_BlkSizeByte', 'BTC_TxTfrCnt'])
 	#lineplot(data, ['BTC','BTC_DiffMean', 'BTC_CapMrktCurUSD', 'BTC_CapRealUSD'])

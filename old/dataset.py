@@ -1,15 +1,10 @@
 import pandas as pd
 from functools import reduce
-import numpy as np
-from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
-from technical_indicators import *
+from lib.technical_indicators import *
 from math import isnan
 from statsmodels.tsa.stattools import adfuller
-import seaborn as sns
-from matplotlib import pyplot as plt
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from keras.utils import to_categorical
 
 from plotter import correlation
 
@@ -291,6 +286,8 @@ if __name__ == '__main__':
 		datasets.append(ohlcv)
 	# Merge yearly datasets
 	ohlcv = reduce(lambda left, right: left.append(right), datasets)
+	ohlcv.to_csv('data/result/ohlcv.csv', sep=',', encoding='utf-8', index=True, index_label='Date')
+
 	print("OHLCV rows: " + str(ohlcv.shape[0]))
 
 	# Build the dataset
@@ -321,16 +318,17 @@ if __name__ == '__main__':
 
 	# Make data discrete
 	discretization_refs = {}
-	for col in ['BTC', 'BTC_High', 'BTC_Low', 'BTC_Open', 'BTC_Volume']:
-		# variation w.r.t previous period
-		c_var = dataset[col].pct_change(1, fill_method='ffill').fillna(0)
-		c = db.to_discrete_double(c_var, -0.01, 0.01)
-		discretization_refs[col + '_ref'] = dataset[col].copy()
-		discretization_refs[col + '_var'] = c_var
-		discretization_refs[col + '_class'] = c
-		discretization_refs[col + '_label'] = db.discrete_label(c_var)
-		dataset[col] = c
-		db.check_integrity(dataset, col)
+	#for col in ['BTC', 'BTC_High', 'BTC_Low', 'BTC_Open', 'BTC_Volume']:
+	#	# variation w.r.t previous period
+	#	c_var = dataset[col].pct_change(1, fill_method='ffill').fillna(0)
+	#	c = db.to_discrete_double(c_var, -0.01, 0.01)
+	#	discretization_refs[col + '_ref'] = dataset[col].copy()
+	#	discretization_refs[col + '_var'] = c_var
+	#	discretization_refs[col + '_class'] = c
+	#	discretization_refs[col + '_label'] = db.discrete_label(c_var)
+	#	dataset[col] = c
+	#	db.check_integrity(dataset, col)
+	dataset.drop(columns=['BTC', 'BTC_High', 'BTC_Low', 'BTC_Open', 'BTC_Volume'], inplace=True)
 
 	# Fill holes linearly [Breaks categorical]
 	#dataset = dataset.replace([np.inf, -np.inf], np.nan).interpolate(method='linear', axis=1)
