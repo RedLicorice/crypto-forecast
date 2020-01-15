@@ -17,6 +17,7 @@ class DatasetType(Enum): # Dataset Type
     CONTINUOUS_TA = 2
     DISCRETE_TA = 3
     OHLCV_PCT = 4
+    BLOCKCHAIN = 5
 
 class Symbol:
     """
@@ -32,7 +33,7 @@ class Symbol:
         self.name = name
         self.datasets = {}
         if kwargs.get('ohlcv') is not None:
-            self.build_datasets(ohlcv=kwargs.get('ohlcv'), column_map=kwargs.get('column_map', DEFAULT_MAP))
+            self.build_datasets(ohlcv=kwargs.get('ohlcv'), blockchain=kwargs.get('blockchain'), column_map=kwargs.get('column_map', DEFAULT_MAP))
 
     def __repr__(self):
         return 'symbol_{}'.format(self.name)
@@ -81,6 +82,8 @@ class Symbol:
         self.datasets[DatasetType.CONTINUOUS_TA] = continuous
         self.datasets[DatasetType.DISCRETE_TA] = discrete
 
+        return continuous, discrete
+
     def build_ohlcv_pct_dataset(self):
         ohlcv = self.datasets[DatasetType.OHLCV]
         if ohlcv is None:
@@ -92,6 +95,23 @@ class Symbol:
         price_pct['target'] = self.future(price_pct['close'].values, 1)
 
         self.datasets[DatasetType.OHLCV_PCT] = price_pct
+        return price_pct
+
+    def build_blockchain_dataset(self, df, **kwargs):
+        ohlcv = self.datasets[DatasetType.OHLCV]
+        pct =  self.datasets[DatasetType.OHLCV_PCT]
+
+        if ohlcv is None or pct is None:
+            raise RuntimeError('No ohlcv or ta loaded!')
+        target_price = self.scale(ohlcv)['target']
+        target_pct = self.scale(pct)['target']
+
+        scaled = self.scale(df, exclude=kwargs.get('exclude'))
+        scaled['target_price'] = target_price
+        scaled['target_pct'] = target_pct
+
+        self.datasets[DatasetType.BLOCKCHAIN] = scaled
+        return scaled
 
     def build_datasets(self, ohlcv, **kwargs):
         """
@@ -101,23 +121,10 @@ class Symbol:
         self.build_ohlcv_dataset(ohlcv, column_map=kwargs.get('column_map', DEFAULT_MAP))
         self.build_ta_dataset() # Requires ohlcv dataset
         self.build_ohlcv_pct_dataset() # Requires ohlcv dataset
-
-        # if scaler
-        scale_types = kwargs.get('scale')
-        scaler = StandardScaler()
-        if scale_types:
-            for type in scale_types:
-                if type in self.datasets:
-                    ds = self.datasets[type]
-                    for col in ds.columns.difference(kwargs.get('scaler-exclude',[])):
-                        reshaped = np.reshape(ds[col].values, (-1,1))
-                        self.datasets[type][col] = scaler.fit_transform(reshaped)
-
-        # Add input lag if needed
-        # if kwargs.get('lag'):
-        #     self.discr_ds = add_lag(self.discr_ds, kwargs.get('lag'))
-        #     self.cont_ds = add_lag(self.cont_ds, kwargs.get('lag'))
-
+        bdf = kwargs.get('blockchain', None)
+        if bdf is not None:
+            print('Build blockchain ds!')
+            self.build_blockchain_dataset(bdf)
 
     ## Operands for classifiers
     def get_xy(self, type):
@@ -239,6 +246,18 @@ class Symbol:
         for k in dta.keys():
             dta[k] = [np.nan if np.isnan(x) else np.asscalar(x) for x in dta[k]]
         return dta
+
+    def scale(self, df, **kwargs):
+        scaler = StandardScaler()
+        scaled = pd.DataFrame(index=df.index)
+        columns = kwargs.get('columns', df.columns)
+        exclude = kwargs.get('exclude', [])
+        for c in columns:
+            if exclude is not None and c in exclude:
+                scaled[c] = df[c].values
+                continue
+            scaled[c] = scaler.fit_transform(np.reshape(df[c].values, (-1, 1)))
+        return scaled
 
     ## Target
     def pct_variation(self, close, periods = 1):

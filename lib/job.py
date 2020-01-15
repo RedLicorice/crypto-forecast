@@ -51,9 +51,9 @@ class Job:
             pred = self.model.predict(x_test.values)
             # Validate the model if needed
             # Plot results
-            if pred:
-                print("Fit Success! " + str(self.model.params['order']))
-                return Report(y=y_test, prediction=pred, model=self.model)
+            if pred is not None:
+                #print("Fit Success! " + str(self.model.params['order']))
+                return Report(y=pred, labels=y_test, prediction=pred, model=self.model)
 
     def expanding_window(self):
         pass
