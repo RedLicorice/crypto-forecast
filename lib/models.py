@@ -83,7 +83,7 @@ class SVCModel(Model):
         x_train, x_test, y_train, y_test= cfg['train'], cfg['test'], cfg['y_train'], cfg['y_test']
         k, c = cfg['kernel'], cfg['c']
         _cfg = 'kernel={}, c={}'.format(k, c)
-        history = [x for x in x_train],[y for y in y_train]
+        history = [x for x in x_train.values],[y for y in y_train.values]
 
         predictions = []
         errors = []
@@ -97,8 +97,8 @@ class SVCModel(Model):
                 yhat = float(forecast[0]) # Forecast next element of the test set
                 if np.isnan(yhat):
                     yhat = 0
-            except:
-                errors.append('Error at step {} for config {}'.format(i, _cfg))
+            except Exception as e:
+                errors.append('Error at step {} for config {}: {}'.format(i, _cfg, str(e)))
                 pass
             finally:
                 predictions.append(yhat) # add forecasted y to predictions

@@ -8,3 +8,4 @@ git+https://github.com/g8a9/pyti.git@master
 statsmodels
 seaborn
 imbalanced-learn
+ta-lib

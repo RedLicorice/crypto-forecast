@@ -2,6 +2,7 @@ from sklearn.model_selection import train_test_split
 from .symbol import Symbol, DatasetType
 from .models import Model, ModelType, ARIMAModel
 from .report import Report
+from .log import logger
 from multiprocessing import Pool, cpu_count
 
 class Job:
@@ -14,30 +15,29 @@ class Job:
 
     def get_dataset(self, **kwargs):
         x, y = None, None
-        if self.model.is_type(ModelType.CONTINUOUS_PCT):
-            x, y =  self.symbol.get_xy(DatasetType.CONTINUOUS_TA)
+        if kwargs.get('dataset'):
+            x, y = self.symbol.get_xy(kwargs.get('dataset'))
+        else:
+            if self.model.is_type(ModelType.CONTINUOUS_PCT):
+                x, y =  self.symbol.get_xy(DatasetType.CONTINUOUS_TA)
 
-        elif self.model.is_type(ModelType.CONTINUOUS_PRICE):
-            x, y = self.symbol.get_xy(DatasetType.OHLCV)
+            elif self.model.is_type(ModelType.CONTINUOUS_PRICE):
+                x, y = self.symbol.get_xy(DatasetType.OHLCV)
 
-        elif self.model.is_type(ModelType.CONTINUOUS_PRICE_PCT):
-            x, y =  self.symbol.get_xy(DatasetType.OHLCV_PCT)
+            elif self.model.is_type(ModelType.CONTINUOUS_PRICE_PCT):
+                x, y =  self.symbol.get_xy(DatasetType.OHLCV_PCT)
 
-        elif self.model.is_type(ModelType.DISCRETE):
-            x, y = self.symbol.get_xy(DatasetType.DISCRETE_TA)
+            elif self.model.is_type(ModelType.DISCRETE):
+                x, y = self.symbol.get_xy(DatasetType.DISCRETE_TA)
 
         if self.model.is_type(ModelType.UNIVARIATE):
-            x = x[kwargs.get('univariate_target','close')]
+            x = x[kwargs.get('univariate_column','close')]
 
-        if kwargs.get('range'):
-            r = kwargs.get('range')
-            x = x.loc[r[0]:r[1]]
-            y = y.loc[r[0]:r[1]]
-
+        logger.info("|x|={},{} |y|={},{}".format(x.shape[0], x.shape[1], y.shape[0], y.shape[1]))
         return x, y
 
     def holdout(self, **kwargs):
-        x, y = self.get_dataset(range=kwargs.get('range'))
+        x, y = self.get_dataset(dataset=kwargs.get('dataset'), univariate_column=kwargs.get('univariate_column'))
 
         # Won't shuffle by default
         x_train, x_test, y_train, y_test  = train_test_split(x, y,
@@ -53,13 +53,13 @@ class Job:
             # Plot results
             if pred is not None:
                 #print("Fit Success! " + str(self.model.params['order']))
-                return Report(y=pred, labels=y_test, prediction=pred, model=self.model)
+                return Report(prediction=pred, labels=y_test, classifier=self.model, parameters=self.model.params)
 
     def expanding_window(self):
         pass
 
     def grid_search(self, **kwargs):
-        x, y = self.get_dataset(range=kwargs.get('range'))
+        x, y = self.get_dataset(dataset=kwargs.get('dataset'), univariate_column=kwargs.get('univariate_column'))
 
         # Won't shuffle by default
         x_train, x_test, y_train, y_test  = train_test_split(x, y,

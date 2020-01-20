@@ -6,6 +6,8 @@ from functools import reduce
 import os
 import seaborn as sns
 from matplotlib import pyplot as plt
+from sklearn.decomposition import PCA
+from scipy.fftpack import fft, fftfreq
 
 def minmax_scaler(values, range=(0,1)):
 	scaler = MinMaxScaler(feature_range=range)
@@ -59,6 +61,55 @@ def scatter(xcol, ycol, save_to=None, _figsz=(16,9)):
 def save_plot(name):
 	os.makedirs('plots', exist_ok=True)
 	plt.savefig('plots/plot_{}.png'.format(name), dpi=300)
+
+def pca(x, y):
+	pca = PCA(n_components=len(x))
+	pc = pca.fit_transform(x)
+	principalDf = pd.DataFrame(data=pc , columns=x.columns)
+	finalDf = pd.concat([principalDf, y], axis=1)
+
+	fig = plt.figure(figsize=(8, 8))
+	ax = fig.add_subplot(1, 1, 1)
+	ax.set_xlabel('Principal Component 1', fontsize=15)
+	ax.set_ylabel('Principal Component 2', fontsize=15)
+	ax.set_title('2 component PCA', fontsize=20)
+	targets = ['Iris-setosa', 'Iris-versicolor', 'Iris-virginica']
+	colors = ['r', 'g', 'b']
+	for target, color in zip(targets, colors):
+		indicesToKeep = finalDf['target'] == target
+		ax.scatter(finalDf.loc[indicesToKeep, 'principal component 1']
+				   , finalDf.loc[indicesToKeep, 'principal component 2']
+				   , c=color
+				   , s=50)
+	ax.legend(targets)
+	ax.grid()
+
+def fourier_transform(data, **kwargs):
+	ylabel = kwargs.get('label', 'Input')
+	if isinstance(data, pd.Series):
+		ylabel = data.name
+	fig, ax = plt.subplots(1, 1, figsize=(6, 3))
+	data.plot(ax=ax, lw=.5)
+	#ax.set_ylim(-10, 40)
+	ax.set_title('{} by Date'.format(ylabel))
+	ax.set_xlabel('Date')
+	ax.set_ylabel(ylabel)
+
+	ft = fft(data)
+	psd = np.abs(ft) ** 2
+	d = kwargs.get('d', 1/kwargs.get('sample_interval', 365)) # should be inverse of the sampling rate
+	print('d='+str(d))
+	ftfreq = fftfreq(len(psd), d) # 1. / 365
+	i = ftfreq > 0
+
+	fig, ax = plt.subplots(1, 1, figsize=(8, 4))
+	ax.plot(ftfreq[i], 10 * np.log10(psd[i]))
+	ax.set_xlim(0, 30)
+	ax.set_title('{} PSD'.format(ylabel))
+	ax.set_xlabel('Frequency (1/Year)')
+	ax.set_ylabel('{} PSD (dB)'.format(ylabel))
+
+	plt.show()
 
 if __name__ == '__main__':
 	data = pd.read_csv('data/atsa2017/BTC_discrete.csv', sep=',', encoding='utf-8', index_col=0)
