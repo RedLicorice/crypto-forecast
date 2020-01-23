@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import numpy as np
 import pandas as pd
@@ -8,6 +7,7 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 from sklearn.decomposition import PCA
 from scipy.fftpack import fft, fftfreq
+
 
 def minmax_scaler(values, range=(0,1)):
 	scaler = MinMaxScaler(feature_range=range)
@@ -21,31 +21,54 @@ def standard_scaler(values):
 	scaled = scaler.fit_transform(shaped)
 	return scaled
 
-def lineplot(df, y, _scale = False):
-	if _scale:
+def lineplot(df, y, **kwargs):
+	if kwargs.get('scale'):
 		for col in df.columns.difference(['Date']):
 			df[col] = standard_scaler(df[col].values)
 	ax = plt.gca()
 	plot = df.plot(
 		kind='line',
-		x='Date',
+		x=kwargs.get('x','Date'),
 		y=y,
 		ax=ax,
 		figsize=(24,20)
 	)
+	#plt.legend(handles=list(df.columns))
 	save_plot('_'.join(y))
 	plt.show()
 
-def correlation(corr, save_to=None, _figsz=(16,9)):
+def squareplot(df, y, **kwargs):
+	if kwargs.get('scale'):
+		for col in df.columns.difference(['Date']):
+			df[col] = standard_scaler(df[col].values)
+	ax = plt.gca()
+	plot = df.plot(
+		kind='line',
+		x=kwargs.get('x','Date'),
+		y=y,
+		ax=ax,
+		figsize=(24,20)
+	)
+	plt.legend(handles=list(df.columns))
+	save_plot('_'.join(y))
+	plt.show()
+
+def correlation(corr, save_to=None, **kwargs):
 	# Set up the matplotlib figure
-	f, ax = plt.subplots(figsize=_figsz)
+	f, ax = plt.subplots(figsize=kwargs.get('figsize',(16,9)))
 	# Generate a custom diverging colormap
 	cmap = sns.diverging_palette(220, 10, as_cmap=True)
 	# Plot correlation matrix
-	sns.heatmap(data=corr.round(2), annot=True, cmap=cmap, square=True, linewidths=.5, cbar_kws={"shrink": .5})
+	sns.heatmap(data=corr.round(2), annot=True, cmap=cmap, cbar_kws={"shrink": .5}, linewidths=.5, square=True)
 	if save_to:
 		plt.savefig(save_to, dpi=72)
 	plt.show()
+
+def make_meshgrid(x, y, h):
+	x_min, x_max = x.min() - 1, x.max() + 1
+	y_min, y_max = y.min() - 1, y.max() + 1
+	xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
+	return xx, yy
 
 def scatter(xcol, ycol, save_to=None, _figsz=(16,9)):
 	# Set up the matplotlib figure
@@ -57,6 +80,47 @@ def scatter(xcol, ycol, save_to=None, _figsz=(16,9)):
 	if save_to:
 		plt.savefig(save_to, dpi=300)
 	plt.show()
+
+def pairplot(df, hue):
+	sns.set(style="ticks")
+	sns.pairplot(df, diag_kind="kde", hue=hue)
+	plt.show()
+
+def signal_plot(ohlc, report):
+	ohlc = ohlc[report.index[0]:report.index[-1]]
+	ax = ohlc.plot(
+		kind='line',
+		y='close',
+		figsize=(12,10),
+	)
+	# grid
+	xtick = pd.date_range(start=ohlc.index.min(), end=ohlc.index.max(), freq='d')
+	ax.set_xticks(xtick, minor=True)
+	ax.grid(True, which='minor', axis='x')
+	ax.grid(False, which='major', axis='x')
+	# Highlight weekends
+	sundays = [i for i in range(len(ohlc.index.dayofweek)) if ohlc.index.dayofweek[i] == 6]
+	for i in sundays:
+		if i+1 < ohlc.shape[0]:
+			ax.axvspan(ohlc.index[i], ohlc.index[i + 1], facecolor='green', edgecolor='none', alpha=.2)
+	#expected
+	x = report.loc[report['expected'] == 1].index.values
+	plt.scatter(x, ohlc.loc[x, 'close'].values-30, label='skitscat', color='red', s=25, marker="v")
+	x = report.loc[report['expected'] == 2].index.values
+	plt.scatter(x, ohlc.loc[x, 'close'].values-30, label='skitscat', color='blue', s=25, marker="o")
+	x = report.loc[report['expected'] == 3].index.values
+	plt.scatter(x, ohlc.loc[x, 'close'].values-30, label='skitscat', color='green', s=25, marker="^")
+	#predicted
+	x = report.loc[report['predicted'] == 1].index.values
+	plt.scatter(x, ohlc.loc[x, 'close'].values, label='skitscat', color='magenta', s=25, marker="v")
+	x = report.loc[report['predicted'] == 2].index.values
+	plt.scatter(x, ohlc.loc[x, 'close'].values, label='skitscat', color='cyan', s=25, marker="o")
+	x = report.loc[report['predicted'] == 3].index.values
+	plt.scatter(x, ohlc.loc[x, 'close'].values, label='skitscat', color='lime', s=25, marker="^")
+
+	plt.show()
+
+
 
 def save_plot(name):
 	os.makedirs('plots', exist_ok=True)

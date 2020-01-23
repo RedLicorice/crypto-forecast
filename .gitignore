@@ -127,7 +127,7 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-#Exclude datasets and plots
+#Exclude features and plots
 data/
 plots/
 *.csv

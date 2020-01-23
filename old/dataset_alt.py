@@ -44,7 +44,7 @@ if __name__ == '__main__':
 		print('Year: ' + str(year))
 		ohlc = pd.read_csv('data/polito/' + str(year) + '_candle.csv', sep=',', index_col='Date', parse_dates=True)
 		vol = pd.read_csv('data/polito/' + str(year) + '_volume.csv', sep=',', index_col='Date', parse_dates=True)
-		# Some datasets (2013) contain an empty column, drop it!
+		# Some features (2013) contain an empty column, drop it!
 		ohlc = ohlc.drop(columns=db.get_non_numeric(ohlc))
 		vol = vol.drop(columns=db.get_non_numeric(vol))
 

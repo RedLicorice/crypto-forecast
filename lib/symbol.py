@@ -1,7 +1,7 @@
 import pandas as pd
 from .technical_indicators import *
-from .utils import to_discrete_single, to_discrete_double
-from sklearn.preprocessing import StandardScaler
+from .utils import to_discrete_single, to_discrete_double, future, pct_variation
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from enum import Enum
 from datetime import datetime
 import talib
@@ -22,12 +22,11 @@ class DatasetType(Enum): # Dataset Type
     OHLCV_PCT = 4
     BLOCKCHAIN = 5
     OHLCV_PATTERN = 6
+    VARIATION_TA = 7
 
 class Symbol:
     """
     Encapsulate relevant data for a given symbol
-    ---
-    - Build a dataset with technical features by using OHLCV data
     """
     datasets = None
     index = None
@@ -40,7 +39,7 @@ class Symbol:
             self.build_datasets(ohlcv=kwargs.get('ohlcv'), blockchain=kwargs.get('blockchain'), column_map=kwargs.get('column_map', DEFAULT_MAP))
 
     def __repr__(self):
-        return 'symbol_{}'.format(self.name)
+        return '{}'.format(self.name)
 
     ## Builder all dataset types
     def build_datasets(self, ohlcv, **kwargs):
@@ -54,27 +53,20 @@ class Symbol:
         self.build_pattern_dataset()
         bdf = kwargs.get('blockchain', None)
         if bdf is not None:
-            print('Build blockchain ds!')
+            #print('Build blockchain ds!')
             self.build_blockchain_dataset(bdf)
 
     # Builder for each dataset
     def build_ohlcv_dataset(self, df, **kwargs):
         _map = kwargs.get('column_map', DEFAULT_MAP)
-        # Drop all columns but OHLCV we're interested in (given in column_map),
-        # then rename dataframe's columns to what we expect
-        # self.ohlcv = df[list(_map.values())]
-        # self.ohlcv.columns = list(_map.keys())
-        # self.cont_ds =  pd.DataFrame(index=self.ohlcv.index) # Save the time series index
-        # self.discr_ds =  pd.DataFrame(index=self.ohlcv.index)  # Save the time series index
-        # self.price_pct_ds =  pd.DataFrame(index=self.ohlcv.index)  # Save the time series index
         ohlcv = df[list(_map.values())].copy()
         ohlcv.columns = list(_map.keys())
-        ohlcv['target'] = self.future(ohlcv['close'].values, 1)  # set to number of forecast periods
-        self.datasets[DatasetType.OHLCV] = ohlcv
+        target = pd.Series(future(ohlcv['close'].values, 1), index=ohlcv.index)  # set to number of forecast periods
+        self.datasets[DatasetType.OHLCV] = (ohlcv, target)
         return ohlcv
 
     def build_pattern_dataset(self):
-        ohlcv = self.datasets[DatasetType.OHLCV]
+        ohlcv, ohlcv_target = self.datasets[DatasetType.OHLCV]
         if ohlcv is None:
             raise RuntimeError('No ohlcv loaded!')
         functions = talib.get_function_groups()['Pattern Recognition']
@@ -92,11 +84,13 @@ class Symbol:
             # Discretize values according to label in utils.to_discrete_double
             patterns[fname] = [3 if v > 0 else 2 if v == 0 else 1 for v in findings]
 
-        patterns['target'] = self.datasets[DatasetType.DISCRETE_TA]['target']
-        self.datasets[DatasetType.OHLCV_PATTERN] = patterns
+        # patterns['target'] = self.features[DatasetType.DISCRETE_TA]['target']
+        # self.features[DatasetType.OHLCV_PATTERN] = patterns
+        target = self.datasets[DatasetType.DISCRETE_TA][1]
+        self.datasets[DatasetType.OHLCV_PATTERN] = (patterns, target)
 
     def build_ta_dataset(self):
-        ohlcv = self.datasets[DatasetType.OHLCV]
+        ohlcv, ohlcv_target = self.datasets[DatasetType.OHLCV]
         if ohlcv is None:
             raise RuntimeError('No ohlcv loaded!')
 
@@ -108,33 +102,46 @@ class Symbol:
 
         continuous = pd.DataFrame(index=ohlcv.index)
         discrete = pd.DataFrame(index=ohlcv.index)
+        variation = pd.DataFrame(index=ohlcv.index)
         for k, dk in zip(ta.keys(), dta.keys()):  # Keys are the same both for 'ta' and 'dta'
             continuous[k] = ta[k]
             discrete[dk] = dta[dk]
+            variation[k] = pct_variation(ta[k], -1)
+        continuous = self.scale(continuous)
+        variation = self.scale(variation, scaler=MinMaxScaler())
         # continuous.dropna(axis='index', how='any', inplace=True)
         # discrete.dropna(axis='index', how='any', inplace=True)
 
-        pct_var = self.pct_variation(ohlcv['close'].values, 1)  # set to number of forecast periods
+        pct_var = pct_variation(ohlcv['close'].values, 1)  # set to number of forecast periods
         classes = to_discrete_double(pct_var, -0.01, 0.01)
-        continuous['target'] = pct_var
-        discrete['target'] = classes
 
-        self.datasets[DatasetType.CONTINUOUS_TA] = continuous
-        self.datasets[DatasetType.DISCRETE_TA] = discrete
+        ## For debugging ds
+        # continuous['close'] = ohlcv['close'].values
+        # continuous['next_close'] = future(ohlcv['close'].values, 1)
+        # continuous['discrete'] = classes
+        # continuous['target'] = pct_var
+        # discrete['target'] = classes
+        # self.features[DatasetType.CONTINUOUS_TA] = continuous
+        # self.features[DatasetType.DISCRETE_TA] = discrete
+
+        self.datasets[DatasetType.CONTINUOUS_TA] = (continuous, pd.Series(pct_var, index=continuous.index))
+        self.datasets[DatasetType.VARIATION_TA] = (variation, pd.Series(pct_var, index=continuous.index))
+        self.datasets[DatasetType.DISCRETE_TA] = (discrete, pd.Series(classes, index=discrete.index))
 
         return continuous, discrete
 
     def build_ohlcv_pct_dataset(self):
-        ohlcv = self.datasets[DatasetType.OHLCV]
+        ohlcv, ohlcv_target = self.datasets[DatasetType.OHLCV]
         if ohlcv is None:
             raise RuntimeError('No ohlcv loaded!')
         # Price pct dataset is well, price from ohlcv but in percent variations
         price_pct= ohlcv.copy()
         for c in price_pct.columns:
-            price_pct[c] = self.pct_variation(price_pct[c])
-        price_pct['target'] = self.future(price_pct['close'].values, 1)
-
-        self.datasets[DatasetType.OHLCV_PCT] = price_pct
+            price_pct[c] = pct_variation(price_pct[c])
+        # price_pct['target'] = future(price_pct['close'].values, 1)
+        # self.features[DatasetType.OHLCV_PCT] = price_pct
+        target = pd.Series(future(price_pct['close'].values, 1), index=price_pct.index)
+        self.datasets[DatasetType.OHLCV_PCT] = (price_pct, target)
         return price_pct
 
     def build_blockchain_dataset(self, df, **kwargs):
@@ -269,37 +276,42 @@ class Symbol:
                              IssContPctAnn
                              TxTfrValMeanNtv
         """
-        ohlcv = self.datasets[DatasetType.OHLCV]
-        pct =  self.datasets[DatasetType.OHLCV_PCT]
-        ta =  self.datasets[DatasetType.DISCRETE_TA]
+        ohlcv, ohlcv_target = self.datasets[DatasetType.OHLCV]
+        pct, pct_target =  self.datasets[DatasetType.OHLCV_PCT]
+        ta, ta_target =  self.datasets[DatasetType.DISCRETE_TA]
 
         if ohlcv is None or pct is None:
-            raise RuntimeError('No ohlcv or ta loaded!')
+            raise RuntimeError('No ohlcv or ta.py loaded!')
 
         #reduced = df.dropna(axis='index')
-        df = df.merge(ohlcv[ohlcv.columns.difference(['target'])], how='left', left_index=True, right_index=True)
+        df = df.merge(ohlcv, how='left', left_index=True, right_index=True)
         scaled = self.scale(df, exclude=kwargs.get('exclude'))
+
+
         targets = pd.DataFrame(index=ohlcv.index)
-        targets['target_price'] = self.scale(ohlcv['target'])
-        targets['target_pct'] = pct['target']
-        targets['target_class'] = ta['target']
+        targets['target_price'] = self.scale(ohlcv_target)
+        targets['target_pct'] = pct_target
+        targets['target_class'] = ta_target
 
         result = pd.merge(scaled, targets, how='inner', left_index=True, right_index=True)
 
-        self.datasets[DatasetType.BLOCKCHAIN] = result
+        self.datasets[DatasetType.BLOCKCHAIN] = (result, ta_target)
         return scaled
 
     ## Operands for classifiers
     def get_xy(self, type):
         if not type in self.datasets:
             raise RuntimeError('Dataset type {} not loaded!'.format(type))
-        ds = self.datasets[type]
-        return ds[ds.columns.difference(['target'])], ds[['target']]
+        ds, target = self.datasets[type]
+        return ds, target
 
     def get_dataset(self, type):
         if not type in self.datasets:
             raise RuntimeError('Dataset type {} not loaded!'.format(type))
-        return self.datasets[type]
+        ds, target = self.datasets[type]
+        res = ds.copy()
+        res['target'] = target
+        return res
 
     ## Synthetic features
     def get_ta_features(self, high, low, close, volume):
@@ -308,8 +320,8 @@ class Symbol:
         high, low, close and volumes.
         """
         ta = {}
-        
-        # Set numpy to ignore division error and invalid values (since not all datasets are complete)
+
+        # Set numpy to ignore division error and invalid values (since not all features are complete)
         old_settings = np.seterr(divide='ignore', invalid='ignore')
 
         # Determine relative moving averages
@@ -349,10 +361,10 @@ class Symbol:
 
         # Stochastic Oscillator
         ta['stoch'] = percent_k(close, 14)
-        # ta['stoch'] = percent_k(high, low, close, 14)
+        # ta.py['stoch'] = percent_k(high, low, close, 14)
 
         # Chande Momentum Oscillator
-        ## Not available in ta
+        ## Not available in ta.py
         ta['cmo'] = chande_momentum_oscillator(close, 14)
 
         # Average True Range Percentage
@@ -411,7 +423,14 @@ class Symbol:
         return dta
 
     def scale(self, df, **kwargs):
-        scaler = StandardScaler()
+        scaler = kwargs.get('scaler', StandardScaler())
+        # scaler selection by name
+        if isinstance(scaler, str):
+            if scaler == 'standard':
+                scaler = StandardScaler()
+            elif scaler == 'minmax':
+                scaler = MinMaxScaler()
+        # Dataframe transparent scaling
         if isinstance(df, pd.DataFrame):
             scaled = pd.DataFrame(index=df.index)
             columns = kwargs.get('columns', df.columns)
@@ -420,6 +439,8 @@ class Symbol:
                 if exclude is not None and c in exclude:
                     scaled[c] = df[c].values
                     continue
+                if str(df[c].dtype) == 'int64':
+                    df[c] = df[c].astype(float) # Suppress int-to-float conversion warnings
                 scaled[c] = scaler.fit_transform(np.reshape(df[c].values, (-1, 1)))
             return scaled
         elif isinstance(df, list) or isinstance(df, np.ndarray) or isinstance(df, pd.Series):
@@ -428,21 +449,6 @@ class Symbol:
             scaled = np.reshape(df, (-1,1))
             return scaler.fit_transform(scaled)
 
-    ## Utilities for features
-    def pct_variation(self, close, periods = 1):
-        """
-        Calculate percent change with next N-th period using formula:
-            next_close - close / close
-        """
-        next_close = self.future(close, periods)
-        return np.divide(next_close - close, close)
-
-    def future(self, x, periods):
-        next_close = np.roll(x, -periods)
-        for i in range(periods):
-            next_close[-i] = 0.0
-        return next_close
-
     ## Filters for data
     def time_slice(self, begin, end, **kwargs):
         format = kwargs.get('format', '%Y-%m-%d %H:%M:%S')
@@ -450,6 +456,6 @@ class Symbol:
         end = datetime.strptime(end, format)
 
         result = Symbol(self.name)
-        for type, df in self.datasets.items():
-            result.datasets[type] = df.loc[begin:end].copy()
+        for type, (df, tgt) in self.datasets.items():
+            result.datasets[type] = (df.loc[begin:end].copy(), tgt.loc[begin:end].copy())
         return result

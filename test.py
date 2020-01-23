@@ -21,11 +21,9 @@ s = Symbol('BTC', ohlcv=df, blockchain=btc, column_map={
     'close': 'BTC',
     'volume': 'BTC_Volume'
 })
-
-bchn = s.get_dataset(DatasetType.BLOCKCHAIN)
-bchn.to_csv('data/result/blockchain-dataset.csv', sep=',', encoding='utf-8', index=True, index_label='Date')
-m = ExpSmoothModel()
+m = SVCModel()
+s = s.time_slice('2016-12-01', '2016-12-31', format='%Y-%m-%d')
 j = Job(symbol=s, model=m)
-r = j.holdout(range=('2016-12-01', '2016-12-31'), multiprocessing=True)
+r = j.holdout()
 #r = min(reports)
 print('Best config: {} mse: {}'.format(str(r), str(r.mse())))

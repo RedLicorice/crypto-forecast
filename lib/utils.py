@@ -1,7 +1,32 @@
 import numpy as np
-from keras.utils import to_categorical
+#from keras.utils import to_categorical
 from collections import deque
 import pandas as pd
+from imblearn.over_sampling import SMOTE
+from imblearn.under_sampling import ClusterCentroids
+
+def oversample(X, y):
+    sm = SMOTE(random_state=12)
+    rX, rY =  sm.fit_sample(X, y)
+    if isinstance(X, pd.DataFrame):
+        rX = pd.DataFrame(data=rX, columns=X.columns)
+    elif isinstance(X, pd.Series):
+        rX = pd.Series(data=rX)
+    if isinstance(y, pd.Series):
+        rY = pd.Series(data=rY)
+    return rX, rY
+
+
+def undersample(X, y):
+    cc = ClusterCentroids(random_state=12)
+    rX, rY = cc.fit_resample(X, y)
+    if isinstance(X, pd.DataFrame):
+        rX = pd.DataFrame(data=rX, columns=X.columns)
+    elif isinstance(X, pd.Series):
+        rX = pd.Series(data=rX)
+    if isinstance(y, pd.Series):
+        rY = pd.Series(data=rY)
+    return rX, rY
 
 def add_lag(df, lag, exclude = None):
     if exclude is None:
@@ -14,6 +39,20 @@ def add_lag(df, lag, exclude = None):
         if col not in exclude
     })
 
+def future(x, periods):
+    next_close = np.roll(x, -periods)
+    for i in range(periods):
+        next_close[-i] = 0.0
+    return next_close
+
+def pct_variation(x, periods = 1):
+    """
+    Calculate percent change with next N-th period using formula:
+        next_close - close / close
+    """
+    next = future(x, periods)
+    diff = next - x
+    return np.divide(diff, x, where=x!=0) # , out=np.zeros_like(close))
 
 def to_discrete_single(values, threshold):
     def _to_discrete(x, threshold):
@@ -62,6 +101,17 @@ def from_categorical(encoded):
         decoded = np.argmax(encoded[i])
         res.append(decoded)
     return np.array(res) + 1 # +1 because keras' from_categoric encodes from 0 while our classes start from 1
+
+def to_categorical(classes):
+    res = []
+    _clss = np.unique(classes)
+    for i in range(classes.shape[0]):
+        datum = [0 for i in _clss]
+        for j in range(len(_clss)):
+            if classes[i] == _clss[j]:
+                datum[j] = 1
+        res.append(datum)
+    return np.array(res) # +1 because keras' to_categoric encodes from 0 while our classes start from 1
 
 def get_unique_ratio(arr):
     total = max(1,len(arr))

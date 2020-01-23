@@ -49,7 +49,7 @@ class DatasetBuilder:
 		return input.join(chain, how='left', sort=True)
 
 	def add_ta_features(self, df, symbol, discrete=False):
-		# Set numpy to ignore division error and invalid values (since not all datasets are complete)
+		# Set numpy to ignore division error and invalid values (since not all features are complete)
 		old_settings = np.seterr(divide='ignore',invalid='ignore')
 
 		col_close = symbol
@@ -103,7 +103,7 @@ class DatasetBuilder:
 		#df[symbol+'_stoch'] = percent_k(df[col_high].values, df[col_low].values, df[col_close].values, 14)
 
 		# Chande Momentum Oscillator
-		## Not available in ta
+		## Not available in ta.py
 		df[symbol+'_cmo'] = chande_momentum_oscillator(df[col_close].values, 14)
 
 		# Average True Range Percentage
@@ -276,7 +276,7 @@ class DatasetBuilder:
 if __name__ == '__main__':
 	#np.seterr(all='raise')
 	db = DatasetBuilder()
-	# Join OHLC and Volume datasets for each year
+	# Join OHLC and Volume features for each year
 	datasets = []
 	for year in [2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018]:
 		print('Year: '+str(year))
@@ -284,7 +284,7 @@ if __name__ == '__main__':
 		vol = pd.read_csv('data/polito/'+str(year)+'_volume.csv', sep=',', index_col='Date', parse_dates=True)
 		ohlcv = db.make_ohlcv('BTC', ohlc, vol)
 		datasets.append(ohlcv)
-	# Merge yearly datasets
+	# Merge yearly features
 	ohlcv = reduce(lambda left, right: left.append(right), datasets)
 	ohlcv.to_csv('data/result/ohlcv.csv', sep=',', encoding='utf-8', index=True, index_label='Date')
 

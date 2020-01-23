@@ -16,7 +16,9 @@ dependencies:
   - seaborn
   - imbalanced-learn
   - pip
+  - joblib
   - pip:
     - l3wrapper
     - git+https://github.com/g8a9/pyti.git@master
     - enlighten
+    - wrapt
