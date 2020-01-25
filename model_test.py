@@ -1,6 +1,6 @@
 from sklearn.datasets import load_iris
 import pandas as pd
-from lib.models.svc import SVCModel as TestModel # CHANGE THIS
+from lib.models.knn import KNNModel as TestModel # CHANGE THIS
 from lib.report import Report
 from sklearn.model_selection import train_test_split
 
@@ -23,5 +23,5 @@ x,y = get_bench_dataset()
 x_train, x_test, y_train, y_test = train_test_split(x, y, train_size=0.66, shuffle=False)
 m.fit(x_train, y=y_train)
 pred = m.predict(x_test)
-r = Report(prediction=pred, labels=y_test, classifier=m, parameters=m.params)
+r = Report(y_pred=pred, y=y_test, model=m, parameters=m.default_params)
 print('{} accuracy: {}'.format(str(r), str(r.accuracy())))

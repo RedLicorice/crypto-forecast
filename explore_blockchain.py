@@ -1,9 +1,9 @@
 import logging
 from lib.log import logger
 from lib.symbol import Symbol, DatasetType
-from lib.models.mlp import MLPModel
+from lib.models.mnb import MNBModel
 from lib.job import Job
-from lib.plotter import lineplot, scatter, correlation, fourier_transform, signal_plot
+from lib.report import ReportCollection
 import pandas as pd
 
 logger.setup(
@@ -31,31 +31,23 @@ s = Symbol('BTC', ohlcv=ohlcv, blockchain=btc, column_map={
 # bchn.to_csv('data/result/block1chain-dataset.csv', sep=',', encoding='utf-8', index=True, index_label='Date')
 # pat.to_csv('data/result/ohlcv_pattern.csv', sep=',', encoding='utf-8', index=True, index_label='Date')
 # fourier_transform(bchn['CapMVRVCur'])
-m = MLPModel()
-s = s.time_slice('2018-01-01', '2018-05-30', format='%Y-%m-%d')
+m = MNBModel()
+s = s.time_slice('2018-01-01', '2018-02-27', format='%Y-%m-%d')
 j = Job(symbol=s, model=m)
-reports = j.grid_search(dataset=DatasetType.CONTINUOUS_TA,
-                        target=DatasetType.DISCRETE_TA,
-                        multiprocessing=True,
-                        # oversample=True,
-                        # undersample=True,
-                        params={
-                            'activation': 'tanh',
-                            'solver': 'adam',
-                            'hidden_layer_sizes': (10, 4),
-                            'learning_rate_init': 0.01,
-                            'learning_rate': 'invscaling'
-                        })
+reports = j.grid_search(x_type=DatasetType.CONTINUOUS_TA,
+                        y_type=DatasetType.DISCRETE_TA,
+                        multiprocessing=False,
+                        params={'fit_prior': False, 'alpha': 0.01})
 
 # Common
 if isinstance(reports, list):
-    for r in reports:
-         print('Evaluation: {} accuracy: {} mse: {}'.format(str(r), str(r.accuracy()), str(r.mse())))
+    c = ReportCollection(reports)
+    df = c.to_dataframe()
+    print(df.head())
     br = min(reports)
-    #scatter(result.index, [result['prediction'].values, result['result'].values])
-    print('Best config: {} accuracy: {}'.format(str(br), str(br.accuracy())))
+    print('Best config:\n\t{} accuracy: {} mse: {} profit: {}%'.format(str(br), str(br.accuracy()), str(br.mse()), br.profit()))
 else:
-    print('{} accuracy: {} profit: {}%'.format(str(reports), str(reports.accuracy()), reports.profit()))
+    print('{} accuracy: {} mse: {} profit: {}%'.format(str(reports), str(reports.accuracy()), str(reports.mse()), reports.profit()))
     br = reports
 
 #signal_plot(ohlcv, result)

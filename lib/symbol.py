@@ -1,7 +1,6 @@
 import pandas as pd
 from .technical_indicators import *
-from .utils import to_discrete_single, to_discrete_double, future, pct_variation
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from .utils import to_discrete_single, to_discrete_double, future, pct_variation, scale
 from enum import Enum
 from datetime import datetime
 import talib
@@ -107,10 +106,6 @@ class Symbol:
             continuous[k] = ta[k]
             discrete[dk] = dta[dk]
             variation[k] = pct_variation(ta[k], -1)
-        continuous = self.scale(continuous)
-        variation = self.scale(variation, scaler=MinMaxScaler())
-        # continuous.dropna(axis='index', how='any', inplace=True)
-        # discrete.dropna(axis='index', how='any', inplace=True)
 
         pct_var = pct_variation(ohlcv['close'].values, 1)  # set to number of forecast periods
         classes = to_discrete_double(pct_var, -0.01, 0.01)
@@ -285,11 +280,11 @@ class Symbol:
 
         #reduced = df.dropna(axis='index')
         df = df.merge(ohlcv, how='left', left_index=True, right_index=True)
-        scaled = self.scale(df, exclude=kwargs.get('exclude'))
+        scaled = scale(df, exclude=kwargs.get('exclude'))
 
 
         targets = pd.DataFrame(index=ohlcv.index)
-        targets['target_price'] = self.scale(ohlcv_target)
+        targets['target_price'] = scale(ohlcv_target)
         targets['target_pct'] = pct_target
         targets['target_class'] = ta_target
 
@@ -299,6 +294,14 @@ class Symbol:
         return scaled
 
     ## Operands for classifiers
+    def get_x(self, type):
+        x, y = self.get_xy(type)
+        return x
+
+    def get_y(self, type):
+        x, y = self.get_xy(type)
+        return y
+
     def get_xy(self, type):
         if not type in self.datasets:
             raise RuntimeError('Dataset type {} not loaded!'.format(type))
@@ -421,33 +424,6 @@ class Symbol:
         for k in dta.keys():
             dta[k] = [np.nan if np.isnan(x) else np.asscalar(x) for x in dta[k]]
         return dta
-
-    def scale(self, df, **kwargs):
-        scaler = kwargs.get('scaler', StandardScaler())
-        # scaler selection by name
-        if isinstance(scaler, str):
-            if scaler == 'standard':
-                scaler = StandardScaler()
-            elif scaler == 'minmax':
-                scaler = MinMaxScaler()
-        # Dataframe transparent scaling
-        if isinstance(df, pd.DataFrame):
-            scaled = pd.DataFrame(index=df.index)
-            columns = kwargs.get('columns', df.columns)
-            exclude = kwargs.get('exclude', [])
-            for c in columns:
-                if exclude is not None and c in exclude:
-                    scaled[c] = df[c].values
-                    continue
-                if str(df[c].dtype) == 'int64':
-                    df[c] = df[c].astype(float) # Suppress int-to-float conversion warnings
-                scaled[c] = scaler.fit_transform(np.reshape(df[c].values, (-1, 1)))
-            return scaled
-        elif isinstance(df, list) or isinstance(df, np.ndarray) or isinstance(df, pd.Series):
-            if isinstance(df, pd.Series):
-                df = df.values
-            scaled = np.reshape(df, (-1,1))
-            return scaler.fit_transform(scaled)
 
     ## Filters for data
     def time_slice(self, begin, end, **kwargs):

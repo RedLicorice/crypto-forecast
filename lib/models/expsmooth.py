@@ -8,7 +8,7 @@ import numpy as np
 
 class ExpSmoothModel(SMModel):
     type = [ModelType.CONTINUOUS_PRICE, ModelType.UNIVARIATE]
-    name = 'expsmooth'
+    name = 'statsmodels.expsmooth'
     default_params = {
         'seasonal_periods':5,
         'alpha': 0.5,

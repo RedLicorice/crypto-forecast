@@ -140,15 +140,23 @@ class SKModel(Model):
         logger.info('Testing:' + str(params))
         history = [x for x in x_train.values], [y for y in y_train.values]
         predictions = []
+        train_predictions = []
         errors = []
         scores = []
         for i in range(len(x_test)):
             # logger.info('grid_search {} {} {}/{}'.format(self.name, str(order), i+1, len(x_test)))
             yhat = 0
+            train_yhat = 0
             try:
                 _left = len(x_test) - i
                 model_fit = self.fit(history[0], y=history[1], params=params)
                 scores.append(model_fit.score(history[0], y=history[1]))
+                # Save train set prediction
+                forecast = model_fit.predict(history[0])
+                train_yhat = float(forecast[0])  # Forecast next element of the test set
+                if np.isnan(yhat):
+                    train_yhat = 0
+                # Save test set prediction
                 forecast = model_fit.predict(x_test[i:])  # ToDO: Save model, use new model only if score increases
                 yhat = float(forecast[0])  # Forecast next element of the test set
                 if np.isnan(yhat):
@@ -157,6 +165,7 @@ class SKModel(Model):
                 errors.append('Error at step {} for config {}: {}'.format(i, str(params), str(e)))
                 pass
             finally:
+                train_predictions.append(train_yhat)
                 predictions.append(yhat)  # add forecasted y to predictions
                 history[0].append(x_test.iloc[i].values)  # Add an element from test set to history
                 history[1].append(y_test.iloc[i])  # Add an element from test set to history
@@ -167,6 +176,8 @@ class SKModel(Model):
             return {
                 'y': y_test,
                 'y_pred': np.array(predictions),
+                'y_train': y_train,
+                'y_train_pred': np.array(train_predictions),
                 'model': str(self),
                 'params': params,
                 'errors': errors,
@@ -181,15 +192,23 @@ class KModel(Model):
         logger.info('Testing:' + str(params))
         history = [x for x in x_train.values], [y for y in y_train.values]
         predictions = []
+        train_predictions = []
         errors = []
         scores = []
         for i in range(len(x_test)):
             # logger.info('grid_search {} {} {}/{}'.format(self.name, str(order), i+1, len(x_test)))
             yhat = 0
+            train_yhat = 0
             try:
                 _left = len(x_test) - i
                 model_fit = self.fit(history[0], y=history[1], params=params)
                 scores.append(model_fit.score(history[0], y=history[1]))
+                # Save train set prediction
+                forecast = model_fit.predict(history[0])
+                train_yhat = float(forecast[0])  # Forecast next element of the test set
+                if np.isnan(yhat):
+                    train_yhat = 0
+                # Save test set prediction
                 forecast = model_fit.predict(x_test[i:])  # ToDO: Save model, use new model only if score increases
                 yhat = float(forecast[0])  # Forecast next element of the test set
                 if np.isnan(yhat):
@@ -198,6 +217,7 @@ class KModel(Model):
                 errors.append('Error at step {} for config {}: {}'.format(i, str(params), str(e)))
                 pass
             finally:
+                train_predictions.append(train_yhat)
                 predictions.append(yhat)  # add forecasted y to predictions
                 history[0].append(x_test.iloc[i].values)  # Add an element from test set to history
                 history[1].append(y_test.iloc[i])  # Add an element from test set to history
@@ -208,6 +228,8 @@ class KModel(Model):
             return {
                 'y': y_test,
                 'y_pred': np.array(predictions),
+                'y_train': y_train,
+                'y_train_pred': np.array(train_predictions),
                 'model': str(self),
                 'params': params,
                 'errors': errors,

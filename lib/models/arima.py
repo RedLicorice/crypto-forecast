@@ -7,7 +7,7 @@ import numpy as np
 
 class ARIMAModel(SMModel):
     type = [ModelType.CONTINUOUS_PRICE, ModelType.UNIVARIATE]
-    name = 'arima'
+    name = 'statsmodels.arima'
     default_params = {
         'order': (1,1,1)
     }

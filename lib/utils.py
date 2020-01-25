@@ -4,6 +4,46 @@ from collections import deque
 import pandas as pd
 from imblearn.over_sampling import SMOTE
 from imblearn.under_sampling import ClusterCentroids
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+
+def has_negative(iterable):
+    iterable = np.reshape(iterable, (-1,1))
+    return len([i for i in iterable if i < 0]) > 0
+
+def scale(df, **kwargs):
+    scaler = kwargs.get('scaler', StandardScaler())
+    # scaler selection by name
+    if isinstance(scaler, str):
+        if scaler == 'minmax':
+            scaler = MinMaxScaler(feature_range=kwargs.get('feature_range', (0,1)))
+        else:  # Default scaler
+            scaler = StandardScaler()
+    # Dataframe transparent scaling
+    if isinstance(df, pd.DataFrame):
+        scaled = pd.DataFrame(index=df.index)
+        columns = kwargs.get('columns', df.columns)
+        exclude = kwargs.get('exclude', []) or []
+        for c in columns:
+            if c in exclude:
+                scaled[c] = df[c].values
+                continue
+            if str(df[c].dtype) == 'int64':
+                df[c] = df[c].astype(float)  # Suppress int-to-float conversion warnings
+            scaled[c] = scaler.fit_transform(np.reshape(df[c].values, (-1, 1)))
+        return scaled
+    elif isinstance(df, list):
+        return scaler.fit_transform(df)
+    elif isinstance(df, pd.Series):
+        values = np.reshape(df.values, (-1,1))
+        scaled = scaler.fit_transform(values)
+        scaled = np.reshape(scaled, (-1,))
+        return pd.Series(scaled, index=df.index)
+    elif isinstance(df, np.ndarray):
+        old_shape = df.shape
+        values = np.reshape(df, (-1,1))
+        scaled = scaler.fit_transform(values)
+        return np.reshape(scaled, old_shape)
+
 
 def oversample(X, y):
     sm = SMOTE(random_state=12)

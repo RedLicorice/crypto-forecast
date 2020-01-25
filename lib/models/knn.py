@@ -30,10 +30,10 @@ class KNNModel(SKModel):
 
     @with_xy
     def get_grid_search_configs(self, **kwargs):
-        weights = ['uniform']
-        n_neighbors = [3, 5, 9, 12]
-        leaf_size = [10, 20, 30]
-        P = [2, 4, 6]
+        weights = ['uniform','distance']
+        n_neighbors = [2, 3, 5, 9]
+        leaf_size = [10]
+        P = [2]
 
         # Get all possible configs
         configs = []

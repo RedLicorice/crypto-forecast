@@ -6,7 +6,7 @@ import numpy as np
 
 class KMeansModel(SKModel):
     type = [ModelType.DISCRETE, ModelType.MULTIVARIATE]
-    name = 'sklearn.svc'
+    name = 'sklearn.kmeans'
     default_params = {
         'n_clusters':8,
         'init':'k-means++', # random or ndarray
