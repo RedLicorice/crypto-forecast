@@ -1,9 +1,10 @@
 import pandas as pd
-from .technical_indicators import *
-from .utils import to_discrete_single, to_discrete_double, future, pct_variation, scale
+from lib.technical_indicators import *
+from lib.utils import to_discrete_single, to_discrete_double, scale
 from enum import Enum
 from datetime import datetime
 import talib
+from functools import reduce
 
 # Default mapping used for extracting OHLCV data from dataframe
 DEFAULT_MAP = {
@@ -60,7 +61,14 @@ class Symbol:
         _map = kwargs.get('column_map', DEFAULT_MAP)
         ohlcv = df[list(_map.values())].copy()
         ohlcv.columns = list(_map.keys())
-        target = pd.Series(future(ohlcv['close'].values, 1), index=ohlcv.index)  # set to number of forecast periods
+        #Slice dataframe so that only valid indexes are kept
+        ohlcv = ohlcv.loc[ohlcv.first_valid_index():ohlcv.last_valid_index()]
+        # Check for rows containing NAN values
+        null_data = ohlcv.isnull() # Returns dataframe mask where true represents missing value
+        # Drop nan values
+        ohlcv.dropna(axis='index', how='any', inplace=True)
+        #Determine target (Next day close so shift 1 backwards)
+        target = ohlcv.close.shift(-1) # Index is already taken care of.
         self.datasets[DatasetType.OHLCV] = (ohlcv, target)
         return ohlcv
 
@@ -105,10 +113,12 @@ class Symbol:
         for k, dk in zip(ta.keys(), dta.keys()):  # Keys are the same both for 'ta' and 'dta'
             continuous[k] = ta[k]
             discrete[dk] = dta[dk]
-            variation[k] = pct_variation(ta[k], -1)
+            #variation[k] = pct_variation(ta[k], -1)
+            variation[k] = continuous[k].pct_change(periods=1)
 
-        pct_var = pct_variation(ohlcv['close'].values, 1)  # set to number of forecast periods
-        classes = to_discrete_double(pct_var, -0.01, 0.01)
+        #pct_var = pct_variation(ohlcv['close'].values, 1)  # set to number of forecast periods
+        pct_var = pd.Series(np.roll(ohlcv.close.pct_change(periods=1), -1), index=ohlcv.index)
+        classes = to_discrete_double(pct_var.fillna(method='ffill'), -0.01, 0.01)
 
         ## For debugging ds
         # continuous['close'] = ohlcv['close'].values
@@ -130,147 +140,16 @@ class Symbol:
         if ohlcv is None:
             raise RuntimeError('No ohlcv loaded!')
         # Price pct dataset is well, price from ohlcv but in percent variations
-        price_pct= ohlcv.copy()
-        for c in price_pct.columns:
-            price_pct[c] = pct_variation(price_pct[c])
+        price_pct= ohlcv.pct_change(1)
+        #for c in price_pct.columns:
+            #price_pct[c] = pct_variation(price_pct[c])
         # price_pct['target'] = future(price_pct['close'].values, 1)
         # self.features[DatasetType.OHLCV_PCT] = price_pct
-        target = pd.Series(future(price_pct['close'].values, 1), index=price_pct.index)
+        target = pd.Series(np.roll(ohlcv.close.pct_change(periods=1), -1), index=ohlcv.index)
         self.datasets[DatasetType.OHLCV_PCT] = (price_pct, target)
         return price_pct
 
     def build_blockchain_dataset(self, df, **kwargs):
-        """
-        :param df:
-        :param kwargs:
-        :return:
-
-        === Run information ===
-
-        Evaluator:    weka.attributeSelection.CorrelationAttributeEval
-        Search:       weka.attributeSelection.Ranker -T -1.7976931348623157E308 -N -1
-        Relation:     blockchain-dataset
-        Instances:    3322
-        Attributes:   42
-                      Date
-                      AdrActCnt
-                      BlkCnt
-                      BlkSizeByte
-                      BlkSizeMeanByte
-                      CapMVRVCur
-                      CapMrktCurUSD
-                      CapRealUSD
-                      DiffMean
-                      FeeMeanNtv
-                      FeeMeanUSD
-                      FeeMedNtv
-                      FeeMedUSD
-                      FeeTotNtv
-                      FeeTotUSD
-                      IssContNtv
-                      IssContPctAnn
-                      IssContUSD
-                      IssTotNtv
-                      IssTotUSD
-                      NVTAdj
-                      NVTAdj90
-                      PriceBTC
-                      PriceUSD
-                      ROI1yr
-                      ROI30d
-                      SplyCur
-                      TxCnt
-                      TxTfrCnt
-                      TxTfrValAdjNtv
-                      TxTfrValAdjUSD
-                      TxTfrValMeanNtv
-                      TxTfrValMeanUSD
-                      TxTfrValMedNtv
-                      TxTfrValMedUSD
-                      TxTfrValNtv
-                      TxTfrValUSD
-                      VtyDayRet180d
-                      VtyDayRet30d
-                      VtyDayRet60d
-                      target_price
-                      target_pct
-        Evaluation mode:    evaluate on all training data
-
-
-
-        === Attribute Selection on all input data ===
-
-        Search Method:
-            Attribute ranking.
-
-        Attribute Evaluator (supervised, Class (numeric): 42 target_pct):
-            Correlation Ranking Filter
-        Ranked attributes:
-         0.066311    6 CapMVRVCur
-         0.047588   26 ROI30d
-         0.039514    3 BlkCnt
-         0.03442    17 IssContPctAnn
-         0.033876   19 IssTotNtv
-         0.033876   16 IssContNtv
-         0.029516   22 NVTAdj90
-         0.028813   32 TxTfrValMeanNtv
-         0.020041   30 TxTfrValAdjNtv
-         0.018183   10 FeeMeanNtv
-         0.017334   39 VtyDayRet30d
-         0.01313    38 VtyDayRet180d
-         0.007607    1 Date
-         0.007331   34 TxTfrValMedNtv
-         0.004698   12 FeeMedNtv
-         0.004569   36 TxTfrValNtv
-         0.000392   40 VtyDayRet60d
-         0          23 PriceBTC
-        -0.003147   37 TxTfrValUSD
-        -0.00421    14 FeeTotNtv
-        -0.006254   33 TxTfrValMeanUSD
-        -0.017056   31 TxTfrValAdjUSD
-        -0.017192   13 FeeMedUSD
-        -0.017937   15 FeeTotUSD
-        -0.018518   25 ROI1yr
-        -0.020396   11 FeeMeanUSD
-        -0.023797    2 AdrActCnt
-        -0.025366   29 TxTfrCnt
-        -0.026377   18 IssContUSD
-        -0.026377   20 IssTotUSD
-        -0.027841   28 TxCnt
-        -0.028096   41 target_price
-        -0.028458   21 NVTAdj
-        -0.029616   24 PriceUSD
-        -0.030107    7 CapMrktCurUSD
-        -0.031475    4 BlkSizeByte
-        -0.033649   35 TxTfrValMedUSD
-        -0.033897    5 BlkSizeMeanByte
-        -0.040972   27 SplyCur
-        -0.046898    8 CapRealUSD
-        -0.047285    9 DiffMean
-
-        Selected attributes: 6,26,3,17,19,16,22,32,30,10,39,38,1,34,12,36,40,23,37,14,33,31,13,15,25,11,2,29,18,20,28,41,21,24,7,4,35,5,27,8,9 : 41
-
-        === CFS Subset Evaluation w/ PCA ===
-
-        Search Method:
-            Best first.
-            Start set: no attributes
-            Search direction: forward
-            Stale search after 5 node expansions
-            Total number of subsets evaluated: 369
-            Merit of best subset found:    0.072
-
-        Attribute Subset Evaluator (supervised, Class (numeric): 42 target_pct):
-            CFS Subset Evaluator
-            Including locally predictive attributes
-
-        Selected attributes: 1,6,9,17,32 : 5
-                             Date
-                             CapMVRVCur
-                             DiffMean
-                             IssContPctAnn
-                             TxTfrValMeanNtv
-        """
         ohlcv, ohlcv_target = self.datasets[DatasetType.OHLCV]
         pct, pct_target =  self.datasets[DatasetType.OHLCV_PCT]
         ta, ta_target =  self.datasets[DatasetType.DISCRETE_TA]
@@ -280,18 +159,24 @@ class Symbol:
 
         #reduced = df.dropna(axis='index')
         df = df.merge(ohlcv, how='left', left_index=True, right_index=True)
-        scaled = scale(df, exclude=kwargs.get('exclude'))
-
+        #df = df.pct_change(periods=1)
+        df = df.diff(axis=0, periods=1)
+        df = scale(df)
+        #df = df.dropna(axis='index', how='any')
+        df = df.loc[df.first_valid_index():df.last_valid_index()]
+        df = df.interpolate(axis=1, method='linear')
 
         targets = pd.DataFrame(index=ohlcv.index)
         targets['target_price'] = scale(ohlcv_target)
         targets['target_pct'] = pct_target
         targets['target_class'] = ta_target
 
-        result = pd.merge(scaled, targets, how='inner', left_index=True, right_index=True)
+        result = pd.merge(df, targets, how='inner', left_index=True, right_index=True)
+        # Drop values for which target is nan
+        result = result.dropna(axis='index', subset=['target_price'])
 
         self.datasets[DatasetType.BLOCKCHAIN] = (result, ta_target)
-        return scaled
+        return result
 
     ## Operands for classifiers
     def get_x(self, type):
@@ -434,4 +319,12 @@ class Symbol:
         result = Symbol(self.name)
         for type, (df, tgt) in self.datasets.items():
             result.datasets[type] = (df.loc[begin:end].copy(), tgt.loc[begin:end].copy())
+        return result
+
+    def add_lag(self, periods):
+        result = Symbol(self.name)
+        for type, (df, tgt) in self.datasets.items():
+            lags = [df] + [df.shift(i).add_suffix('-{}'.format(i)) for i in range(1, periods+1)]
+            lagged_df = reduce(lambda x, y: pd.merge(x, y, left_index=True, right_index=True), lags)
+            result.datasets[type] = (lagged_df, tgt)
         return result

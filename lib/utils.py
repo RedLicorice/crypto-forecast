@@ -6,7 +6,29 @@ from imblearn.over_sampling import SMOTE
 from imblearn.under_sampling import ClusterCentroids
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
+def check_duplicates(df, **kwargs):
+    present = []
+    duplicates = []
+    for i in df.index:
+        if not i in present:
+            present.append(i)
+        else:
+            if kwargs.get('print'):
+                print('Duplicate index: ' + str(i))
+            duplicates.append(i)
+    return duplicates
+
+def is_constant(iterable):
+    # Idea is to get the unique values in the array, and check how many of them there are.
+    # One unique value => array is constant
+    if isinstance(iterable, pd.DataFrame) or isinstance(iterable, pd.Series):
+        iterable = iterable.values
+    _clss = np.unique(iterable)
+    return _clss.shape[0] <= 1
+
 def has_negative(iterable):
+    if isinstance(iterable, pd.DataFrame) or isinstance(iterable, pd.Series):
+        iterable = iterable.values
     iterable = np.reshape(iterable, (-1,1))
     return len([i for i in iterable if i < 0]) > 0
 

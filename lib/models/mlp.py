@@ -15,7 +15,7 @@ class MLPModel(SKModel):
     }
 
     @with_y
-    @with_default_params
+    @with_params
     def fit(self,x, **kwargs):
         y = kwargs.get('y')
         params = kwargs.get('params')
@@ -43,7 +43,7 @@ class MLPModel(SKModel):
         solvers = ['adam', 'lbfgs']
         learning_rate = ['constant', 'invscaling', 'adaptive']
         learning_rate_init = [0.001, 0.005, 0.01, 0.05]
-        act = ['relu','softmax','tanh']
+        act = ['relu','logistic','tanh']
 
         # Get all possible configs
         configs = []

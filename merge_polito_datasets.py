@@ -1,17 +1,6 @@
 import pandas as pd
 from functools import reduce
-
-def check_duplicates(df, **kwargs):
-    present = []
-    duplicates = []
-    for i in df.index:
-        if not i in present:
-            present.append(i)
-        else:
-            if kwargs.get('print'):
-                print('Duplicate index: ' + str(i))
-            duplicates.append(i)
-    return duplicates
+from lib.utils import check_duplicates
 
 print('Merging')
 candles = [
@@ -51,4 +40,6 @@ if check_duplicates(whole):
     whole = whole.loc[~whole.index.duplicated(keep='first')]
     check_duplicates(whole, print=True)
 
-whole.to_csv('data/result/ohlcv.csv', sep=',', encoding='utf-8', index=True, index_label='Date')
+whole.to_csv('data/result/polito.csv', sep=',', encoding='utf-8', index=True, index_label='Date')
+period = whole.to_period(freq='W')
+period.to_csv('data/result/polito-weekly.csv', sep=',', encoding='utf-8', index=True, index_label='Date')

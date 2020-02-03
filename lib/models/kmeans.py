@@ -17,7 +17,7 @@ class KMeansModel(SKModel):
     }
 
     @with_y
-    @with_default_params
+    @with_params
     def fit(self, x, **kwargs):
         y = kwargs.get('y')
         params = kwargs.get('params')

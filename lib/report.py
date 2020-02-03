@@ -29,7 +29,7 @@ class ReportCollection:
         df['profit_rank'] = df['profit'].rank(ascending=False)
         df['accuracy_rank'] = df['accuracy'].rank(ascending=False)
         return df.sort_values(
-            by=kwargs.get('sort_by', ['accuracy_rank', 'profit_rank', 'mse_rank']),
+            by=kwargs.get('sort_by', ['accuracy_rank', 'mse_rank']),
             ascending=kwargs.get('ascending', True),
             axis='index'
         )
@@ -94,10 +94,13 @@ class Report:
 
     def mse(self, **kwargs):
         if kwargs.get('train'):
+            if self.y_train is None or self.y_train_pred is None:
+                return np.nan
             return mean_squared_error(self.y_train, self.y_train_pred)
         return mean_squared_error(self.y, self.y_pred)
 
     def profit(self, **kwargs):
+        return 0.
         start_balance = kwargs.get('start_balance', 10000)
         pos_size = kwargs.get('pos_size', (start_balance*2)/100)
         signals = kwargs.get('signals', self.y_pred)

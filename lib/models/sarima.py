@@ -1,11 +1,11 @@
 from lib.models import *
 from lib.log import logger
 from lib.utils import to_discrete_double
-from statsmodels.tsa.arima_model import ARIMA
+from statsmodels.tsa.statespace.sarimax import SARIMAX
 from statsmodels.tsa.stattools import adfuller
 import numpy as np
 
-class ARIMAModel(SMModel):
+class SARIMAModel(SMModel):
     type = [ModelType.CONTINUOUS_PRICE, ModelType.UNIVARIATE]
     name = 'statsmodels.arima'
     default_params = {
@@ -16,7 +16,7 @@ class ARIMAModel(SMModel):
     def fit(self, x, **kwargs):
         params = kwargs.get('params')
         try:
-            self.model = ARIMA(x, order=params['order']) \
+            self.model = SARIMAX(x, order=params['order']) \
                     .fit(disp=params.get('disp',0))
             return self.model
         except (ValueError, np.linalg.linalg.LinAlgError):

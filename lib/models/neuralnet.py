@@ -18,7 +18,7 @@ class NNModel(KModel):
     metrics = ['acc', 'mse', 'mae', 'mape']
 
     @with_y
-    @with_default_params
+    @with_params
     def fit(self, x, **kwargs):
         y = kwargs.get('y')
         params = kwargs.get('params')
@@ -61,8 +61,8 @@ class NNModel(KModel):
         y_train = kwargs.get('y_train')
         y_test = kwargs.get('y_test')
 
-        neurons = [[8], [16], [24], [32], [64]]
-        learning_rates = np.logspace(0.001, 0.01, 5)
+        neurons = [[8], [16], [32], [64]]
+        learning_rates = [0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05]
         batch_sizes = [8, 16, 32, 64]
         epochs = [100, 200, 300]
 

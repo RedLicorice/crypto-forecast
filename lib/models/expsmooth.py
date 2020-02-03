@@ -15,7 +15,7 @@ class ExpSmoothModel(SMModel):
         'beta':0.5,
     }
 
-    @with_default_params
+    @with_params
     def fit(self, x, **kwargs):
         params = kwargs.get('params')
         try:
