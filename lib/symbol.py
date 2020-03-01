@@ -5,6 +5,8 @@ from enum import Enum
 from datetime import datetime
 import talib
 from functools import reduce
+#from collections import deque
+# ToDO: try aggregating candles at 1, 7 and 30 days
 
 # Default mapping used for extracting OHLCV data from dataframe
 DEFAULT_MAP = {
@@ -70,7 +72,24 @@ class Symbol:
         #Determine target (Next day close so shift 1 backwards)
         target = ohlcv.close.shift(-1) # Index is already taken care of.
         self.datasets[DatasetType.OHLCV] = (ohlcv, target)
+        self.build_higher_tfs()
         return ohlcv
+
+    def build_higher_tfs(self):
+        ohlcv, ohlcv_target = self.datasets[DatasetType.OHLCV]
+        if ohlcv is None:
+            raise RuntimeError('No ohlcv loaded!')
+        #periods = [7,14,30]
+        #queues = {n:deque([], n) for n in periods}
+        #for i in ohlcv.index:
+        #    for q in queues.values():
+        #        q.append()
+        weekly = ohlcv.resample('W')\
+            .agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'})
+        monthly = ohlcv.resample('M')\
+            .agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'})
+        return
+
 
     def build_pattern_dataset(self):
         ohlcv, ohlcv_target = self.datasets[DatasetType.OHLCV]

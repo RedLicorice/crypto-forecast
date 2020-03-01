@@ -1,7 +1,7 @@
 import logging
 from lib.log import logger
 from lib.symbol import Symbol, DatasetType
-from lib.models.neuralnet import NNModel as CurrentModel
+from lib.models.mlp import MLPModel as CurrentModel
 from lib.job import Job
 from lib.report import ReportCollection
 import pandas as pd
@@ -27,8 +27,8 @@ s = Symbol(_sym, ohlcv=ohlcv, blockchain=btc, column_map={
     'volume': _sym+'_Volume'
 })
 
-bchn = s.get_dataset(DatasetType.BLOCKCHAIN)
-correlation(bchn.corr(), 'data/result/blockchain-corr.png', figsize=(32,18))
+#bchn = s.get_dataset(DatasetType.BLOCKCHAIN)
+#correlation(bchn.corr(), 'data/result/blockchain-corr.png', figsize=(32,18))
 # pat = s.get_dataset(DatasetType.OHLCV_PATTERN)
 # bchn.to_csv('data/result/block1chain-dataset.csv', sep=',', encoding='utf-8', index=True, index_label='Date')
 # pat.to_csv('data/result/ohlcv_pattern.csv', sep=',', encoding='utf-8', index=True, index_label='Date')

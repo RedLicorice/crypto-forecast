@@ -30,7 +30,7 @@ class ARIMAModel(SMModel):
             forecast = self.model.forecast(steps=x.shape[0])
             return to_discrete_double(forecast, -0.01, 0.01)
         except (ValueError, np.linalg.linalg.LinAlgError):
-            logger.error('ARIMA convergence error (order {} {} {})'.format(self.params['order'][0], self.params['order'][1], self.params['order'][2]))
+            logger.error('{}: convergence error'.format(str(self.model.get_params())))
 
     @with_x
     def get_grid_search_configs(self, **kwargs):

@@ -1,7 +1,7 @@
 import logging
 from lib.log import logger
 from lib.symbol import Symbol, DatasetType
-from lib.models import ARIMAModel, SVCModel, ExpSmoothModel
+from lib.models.arima import ARIMAModel
 from lib.job import Job
 import pandas as pd
 
@@ -21,9 +21,10 @@ s = Symbol('BTC', ohlcv=df, blockchain=btc, column_map={
     'close': 'BTC',
     'volume': 'BTC_Volume'
 })
-m = SVCModel()
+m = ARIMAModel()
 s = s.time_slice('2016-12-01', '2016-12-31', format='%Y-%m-%d')
 j = Job(symbol=s, model=m)
-r = j.holdout()
+r = j.holdout(x_type=DatasetType.OHLCV_PCT, y_type=DatasetType.OHLCV_PCT, univariate_column='close')
+
 #r = min(reports)
 print('Best config: {} mse: {}'.format(str(r), str(r.mse())))
