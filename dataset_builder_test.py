@@ -6,7 +6,7 @@ import os
 import pandas as pd
 from lib.plotter import correlation, save_plot
 from lib.models import ModelFactory
-from lib.dataset import DatasetFactory
+import lib.dataset as builder
 from lib.report import ReportCollection
 import plotly.graph_objects as go
 
@@ -45,38 +45,55 @@ logger.setup(
     logger='job_test'
 )
 ModelFactory.discover()
-DatasetFactory.discover()
 
 all_ohlcv = pd.read_csv("./data/result/ohlcv.csv", sep=',', encoding='utf-8', index_col='Date', parse_dates=True)
 all_chains = pd.read_csv("./data/result/blockchains.csv", sep=',', encoding='utf-8', index_col='Date', parse_dates=True)
 
+IND_TA_7 = {
+	'rsma' : [(5,20), (8,15), (20,50)],
+	'rema' : [(5,20), (8,15), (20,50)],
+	'macd' : [(12,26)],
+	'ao' : [14],
+	'adx' : [14],
+	'wd' : [14],
+	'ppo' : [(12,26)],
+	'rsi':[14],
+	'mfi':[14],
+	'tsi':None,
+	'stoch':[14],
+	'cmo':[14],
+	'atrp':[14],
+	'pvo':[(12,26)],
+	'fi':[13,50],
+	'adi':None,
+	'obv':None
+}
+
 models = ModelFactory.create_all(['arima','expsmooth','sarima', 'nn', 'kmeans'])
 for _sym in SYMBOLS:
-    ohlcv = DatasetFactory.get_features('ohlcv', all_ohlcv, symbol=_sym)
-    for i in range(7):
-        i = ohlcv.sort_index().copy()
-    ohlcv_7 = DatasetFactory.get_features('reverse_resample', ohlcv, period=7)
-    ohlcv_7t = DatasetFactory.get_features('timeframe', ohlcv, period=7)
-    ohlcv_30 = DatasetFactory.get_features('reverse_resample', ohlcv, period=30)
-    ohlcv_7d = DatasetFactory.get_features('period_resample', ohlcv, period=7)
-    ohlcv_30d = DatasetFactory.get_features('period_resample', ohlcv, period=30)
+    ohlcv = builder.features_ohlcv(all_ohlcv, symbol=_sym)
+    ohlcv_7 = builder.reverse_resample(ohlcv, period=7)
+    ohlcv_7t = builder.features_timeframe(ohlcv, period=7)
+    ohlcv_30 = builder.reverse_resample(ohlcv, period=30)
+    ta_7d = builder.period_resampled_ta(ohlcv, period=7, indicators=IND_TA_7)
+
 
     if INTERACTIVE_FIGURE:
         fig = go.Figure(data=[
-            go.Ohlc(x=ohlcv_30d.index,
-                 open=ohlcv_30d['open'],
-                 high=ohlcv_30d['high'],
-                 low=ohlcv_30d['low'],
-                 close=ohlcv_30d['close'],
-                increasing_line_color='cyan', decreasing_line_color='gray'
-            ),
-            go.Ohlc(x=ohlcv_7d.index,
-                 open=ohlcv_7d['open'],
-                 high=ohlcv_7d['high'],
-                 low=ohlcv_7d['low'],
-                 close=ohlcv_7d['close'],
-                 increasing_line_color = 'blue', decreasing_line_color = 'purple'
-            ),
+            # go.Ohlc(x=ohlcv_30d.index,
+            #      open=ohlcv_30d['open'],
+            #      high=ohlcv_30d['high'],
+            #      low=ohlcv_30d['low'],
+            #      close=ohlcv_30d['close'],
+            #     increasing_line_color='cyan', decreasing_line_color='gray'
+            # ),
+            # go.Ohlc(x=ohlcv_7d.index,
+            #      open=ohlcv_7d['open'],
+            #      high=ohlcv_7d['high'],
+            #      low=ohlcv_7d['low'],
+            #      close=ohlcv_7d['close'],
+            #      increasing_line_color = 'blue', decreasing_line_color = 'purple'
+            # ),
             go.Ohlc(x=ohlcv.index,
                     open=ohlcv['open'],
                     high=ohlcv['high'],

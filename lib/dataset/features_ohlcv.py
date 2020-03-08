@@ -1,4 +1,3 @@
-from lib.dataset import DatasetFactory
 import pandas as pd
 from lib.utils import to_discrete_single, to_discrete_double
 
@@ -10,7 +9,7 @@ DEFAULT_MAP = {
     'volume' : 'volume'
 }
 
-def build(df, **kwargs):
+def features_ohlcv(df, **kwargs):
 	_map = kwargs.get('column_map', DEFAULT_MAP)
 	if kwargs.get('symbol'):
 		_map = _map_symbol(kwargs.get('symbol'))
@@ -34,5 +33,3 @@ def _map_symbol(_sym):
 		'close': _sym,
 		'volume': _sym + '_Volume'
 	}
-
-DatasetFactory.register_features('ohlcv', build)

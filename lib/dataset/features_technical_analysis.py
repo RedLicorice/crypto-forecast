@@ -1,17 +1,39 @@
-from lib.dataset import DatasetFactory
 import pandas as pd
 from lib.utils import to_discrete_single, to_discrete_double
 from lib.technical_indicators import *
 
-def build(ohlcv, **kwargs):
+TA_DEFAULT_INDICATORS = {
+	'rsma' : [(5,20), (8,15), (20,50)],
+	'rema' : [(5,20), (8,15), (20,50)],
+	'macd' : [(12,26)],
+	'ao' : [14],
+	'adx' : [14],
+	'wd' : [14],
+	'ppo' : [(12,26)],
+	'rsi':[14],
+	'mfi':[14],
+	'tsi':None,
+	'stoch':[14],
+	'cmo':[14],
+	'atrp':[14],
+	'pvo':[(12,26)],
+	'fi':[13,50],
+	'adi':None,
+	'obv':None
+}
+
+def features_ta(ohlcv, **kwargs):
 	if ohlcv is None:
 		raise RuntimeError('No ohlcv loaded!')
 	mode = kwargs.get('mode', 'continuous')
 
-	ta = get_ta_features(ohlcv['high'].values,
-							  ohlcv['low'].values,
-							  ohlcv['close'].values,
-							  ohlcv['volume'].values)
+	ta = get_ta_features(
+		ohlcv['high'].values,
+		ohlcv['low'].values,
+		ohlcv['close'].values,
+		ohlcv['volume'].values,
+		kwargs.get('indicators', TA_DEFAULT_INDICATORS)
+	)
 	if mode == 'discrete':
 		ta = discretize_ta_features(ta)
 
@@ -25,7 +47,7 @@ def build(ohlcv, **kwargs):
 
 	return result
 
-def get_ta_features(high, low, close, volume):
+def get_ta_features(high, low, close, volume, desc):
 	"""
 	Returns a dict containing the technical analysis indicators calculated on the given
 	high, low, close and volumes.
@@ -36,65 +58,87 @@ def get_ta_features(high, low, close, volume):
 	old_settings = np.seterr(divide='ignore', invalid='ignore')
 
 	# Determine relative moving averages
-	ta['rsma5_20'] = relative_sma(close, 5, 20)
-	ta['rsma8_15'] = relative_sma(close, 8, 15)
-	ta['rsma20_50'] = relative_sma(close, 20, 50)
-	ta['rema5_20'] = relative_ema(close, 5, 20)
-	ta['rema8_15'] = relative_ema(close, 8, 15)
-	ta['rema20_50'] = relative_ema(close, 20, 50)
+	for _short, _long in desc['rsma']:
+		ta['rsma_{}_{}'.format(_short, _long)] = relative_sma(close, _short, _long)
+	for _short, _long in desc['rema']:
+		ta['rema_{}_{}'.format(_short, _long)] = relative_ema(close, _short, _long)
 
 	# MACD Indicator
-	ta['macd_12_26'] = moving_average_convergence_divergence(close, 12, 26)
+	if 'macd' in desc:
+		for _short, _long in desc['macd']:
+			ta['macd_{}_{}'.format(_short, _long)] = moving_average_convergence_divergence(close, _short, _long)
 
 	# Aroon Indicator
-	ta['ao'] = aroon_oscillator(close, 14)
+	if 'ao' in desc:
+		for _period in desc['ao']:
+			ta['ao_{}'.format(_period)] = aroon_oscillator(close, _period)
 
 	# Average Directional Movement Index (ADX)
-	ta['adx'] = average_directional_index(close, high, low,
-										  14)
+	if 'adx' in desc:
+		for _period in desc['adx']:
+			ta['adx_'.format(_period)] = average_directional_index(close, high, low, _period)
 
 	# Difference between Positive Directional Index(DI+) and Negative Directional Index(DI-)
-	ta['wd'] = \
-		positive_directional_index(close, high, low, 14) \
-		- negative_directional_index(close, high, low, 14)
+	if 'wd' in desc:
+		for _period in desc['wd']:
+			ta['wd_{}'.format(_period)] = \
+				positive_directional_index(close, high, low, _period) \
+				- negative_directional_index(close, high, low, _period)
 
 	# Percentage Price Oscillator
-	ta['ppo'] = price_oscillator(close, 12, 26)
+	if 'ppo' in desc:
+		for _short, _long in desc['ppo']:
+			ta['ppo_{}_{}'] = price_oscillator(close, _short, _long)
 
 	# Relative Strength Index
-	ta['rsi'] = relative_strength_index(close, 14)
+	if 'rsi' in desc:
+		for _period in desc['rsi']:
+			ta['rsi_{}'.format(_period)] = relative_strength_index(close, _period)
 
 	# Money Flow Index
-	ta['mfi'] = money_flow_index(close, high, low, volume, 14)
+	if 'mfi' in desc:
+		for _period in desc['mfi']:
+			ta['mfi'.format(_period)] = money_flow_index(close, high, low, volume, _period)
 
 	# True Strength Index
-	ta['tsi'] = true_strength_index(close)
+	if 'tsi' in desc:
+		ta['tsi'] = true_strength_index(close)
 
 	# Stochastic Oscillator
-	ta['stoch'] = percent_k(close, 14)
+	if 'stoch' in desc:
+		for _period in desc['stoch']:
+			ta['stoch_{}'.format(_period)] = percent_k(close, _period)
 	# ta.py['stoch'] = percent_k(high, low, close, 14)
 
 	# Chande Momentum Oscillator
 	## Not available in ta.py
-	ta['cmo'] = chande_momentum_oscillator(close, 14)
+	if 'cmo' in desc:
+		for _period in desc['cmo']:
+			ta['cmo_{}'.format(_period)] = chande_momentum_oscillator(close, _period)
 
 	# Average True Range Percentage
-	ta['atrp'] = average_true_range_percent(close, 14)
+	if 'atrp' in desc:
+		for _period in desc['atrp']:
+			ta['atrp_{}'.format(_period)] = average_true_range_percent(close, _period)
 
 	# Percentage Volume Oscillator
-	ta['pvo'] = volume_oscillator(volume, 12, 26)
+	if 'pvo' in desc:
+		for _short, _long in desc['pvo']:
+			ta['pvo_{}_{}'.format(_short, _long)] = volume_oscillator(volume, _short, _long)
 
 	# Force Index
-	fi = force_index(close, volume)
-	ta['fi13'] = exponential_moving_average(fi, 13)
-	ta['fi50'] = exponential_moving_average(fi, 50)
+	if 'fi' in desc:
+		fi = force_index(close, volume)
+		for _period in desc['fi']:
+			ta['fi_{}'.format(_period)] = exponential_moving_average(fi, _period)
 
 	# Accumulation Distribution Line
-	ta['adi'] = accumulation_distribution(close, high, low,
-										  volume)
+	if 'adi' in desc:
+		ta['adi'] = accumulation_distribution(close, high, low, volume)
 
 	# On Balance Volume
-	ta['obv'] = on_balance_volume(close, volume)
+	if 'obv' in desc:
+		ta['obv'] = on_balance_volume(close, volume)
 
 	# Restore numpy error settings
 	np.seterr(**old_settings)
@@ -107,30 +151,24 @@ def discretize_ta_features(ta):
 	dict of technical indicators
 	"""
 	dta = {}
-	dta['rsma5_20'] = to_discrete_single(ta['rsma5_20'], 0)
-	dta['rsma8_15'] = to_discrete_single(ta['rsma8_15'], 0)
-	dta['rsma20_50'] = to_discrete_single(ta['rsma20_50'], 0)
-	dta['rema5_20'] = to_discrete_single(ta['rema5_20'], 0)
-	dta['rema8_15'] = to_discrete_single(ta['rema8_15'], 0)
-	dta['rema20_50'] = to_discrete_single(ta['rema20_50'], 0)
-	dta['macd_12_26'] = to_discrete_single(ta['macd_12_26'], 0)
-	dta['ao'] = to_discrete_single(ta['ao'], 0)
-	dta['adx'] = to_discrete_single(ta['adx'], 20)
-	dta['wd'] = to_discrete_single(ta['wd'], 0)
-	dta['ppo'] = to_discrete_single(ta['ppo'], 0)
-	dta['rsi'] = to_discrete_double(ta['rsi'], 30, 70)
-	dta['mfi'] = to_discrete_double(ta['mfi'], 30, 70)
-	dta['tsi'] = to_discrete_double(ta['tsi'], -25, 25)
-	dta['stoch'] = to_discrete_double(ta['stoch'], 20, 80)
-	dta['cmo'] = to_discrete_double(ta['cmo'], -50, 50)
-	dta['atrp'] = to_discrete_single(ta['atrp'], 30)
-	dta['pvo'] = to_discrete_single(ta['pvo'], 0)
-	dta['fi13'] = to_discrete_single(ta['fi13'], 0)
-	dta['fi50'] = to_discrete_single(ta['fi50'], 0)
-	dta['adi'] = to_discrete_single(ta['adi'], 0)
-	dta['obv'] = to_discrete_single(ta['obv'], 0)
+	for k,v in ta.items():
+		if k.startswith(['rsma', 'rema', 'macd', 'pvo', 'fi', 'adi', 'obv', 'ao', 'wd', 'ppo']):
+			dta[k] = to_discrete_single(v, 0)
+		elif k.startswith('adx'):
+			dta[k] = to_discrete_single(v, 20)
+		elif k.startswith('rsi'):
+			dta[k] = to_discrete_double(v, 30, 70)
+		elif k.startswith('mfi'):
+			dta[k] = to_discrete_double(v, 30, 70)
+		elif k.startswith('tsi'):
+			dta[k] = to_discrete_double(v, -25, 25)
+		elif k.startswith('stoch'):
+			dta[k] = to_discrete_double(v, 20, 80)
+		elif k.startswith('cmo'):
+			dta[k] = to_discrete_double(v, -50, 50)
+		elif k.startswith('atrp'):
+			dta[k] = to_discrete_single(v, 30)
 	for k in dta.keys():
 		dta[k] = [np.nan if np.isnan(x) else np.asscalar(x) for x in dta[k]]
 	return dta
 
-DatasetFactory.register_features('technical_analysis', build)

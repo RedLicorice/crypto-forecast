@@ -1,8 +1,8 @@
-from lib.dataset import DatasetFactory
 import pandas as pd
 from collections import deque
+from lib.dataset import features_ta
 
-def build(ohlcv, **kwargs):
+def features_timeframe(ohlcv, **kwargs):
 	_cols = ['open', 'high', 'low', 'close', 'volume']
 	_tf = kwargs.get('periods', 7)
 	q = deque([], _tf)
@@ -38,6 +38,14 @@ def period_resample(df, **kwargs):
 		result.append(nth_day)
 	return pd.concat(result, sort=True).sort_index()
 
-DatasetFactory.register_features('timeframe', build)
-DatasetFactory.register_features('reverse_resample', reverse_resample)
-DatasetFactory.register_features('period_resample', period_resample)
+def period_resampled_ta(df, **kwargs):
+	period = int(kwargs.get('period', 7))
+	result = []
+	df = df.sort_index().copy()
+	for i in range(period):
+		_df = df.iloc[i:]
+		nth_day = _df.resample('{}D'.format(period), closed='left', label='right', convention='end', kind='timestamp', loffset='-1D') \
+				.agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'})
+		nth_day_ta = features_ta(nth_day)
+		result.append(nth_day_ta)
+	return pd.concat(result, sort=True).sort_index()

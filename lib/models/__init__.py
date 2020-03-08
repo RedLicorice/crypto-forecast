@@ -61,10 +61,10 @@ class ModelFactory:
             for finder, name, ispkg
             in pkgutil.iter_modules(__path__, __name__ + ".")
         }
+        logger.debug("Available models: {}".format(cls.registered_modules.keys()))
 
     @classmethod
     def register_model(cls, name, model):
-        logger.debug("Registered model {} from {}".format(name, str(model)))
         cls.registered_models[name] = model
 
     @classmethod
