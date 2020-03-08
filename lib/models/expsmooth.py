@@ -1,4 +1,4 @@
-from lib.models import *
+from lib.models import SMModel, ModelType, ModelFactory, with_params, with_x
 from lib.log import logger
 from lib.utils import to_discrete_double
 from statsmodels.tsa.stattools import adfuller
@@ -76,3 +76,5 @@ class ExpSmoothModel(SMModel):
                         'x_test' : x_test
                     })
         return configs
+
+ModelFactory.register_model('expsmooth', ExpSmoothModel)

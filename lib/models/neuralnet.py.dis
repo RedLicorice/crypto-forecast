@@ -1,4 +1,4 @@
-from lib.models import *
+from lib.models import KModel, ModelType, ModelFactory, with_params, with_x, with_y, with_xy
 from lib.log import logger
 from lib.utils import from_categorical, to_categorical
 from keras.models import Sequential
@@ -85,3 +85,5 @@ class NNModel(KModel):
                             'y_test' : y_test
                         })
         return configs
+
+ModelFactory.register_model('nn', NNModel)

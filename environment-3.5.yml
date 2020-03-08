@@ -4,20 +4,19 @@ channels:
   - conda-forge
   - anaconda-cloud
 dependencies:
-  - python=3.7
+  - python=3.5
   - numpy
   - pandas
   - scikit-learn
   - scipy
-  #- keras
+  - keras
   - statsmodels
   - matplotlib
-  #- tensorflow
+  - tensorflow
   - seaborn
-  #- imbalanced-learn
+  - imbalanced-learn
   - pip
   - joblib
-  - plotly
   - pip:
     - l3wrapper
     - git+https://github.com/g8a9/pyti.git@master

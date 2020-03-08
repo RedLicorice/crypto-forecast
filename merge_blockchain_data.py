@@ -37,8 +37,10 @@ for sym, csv in symbols.items():
 
     #volume = pd.read_csv(vol, sep=',', encoding='utf-8', index_col='Date', parse_dates=True)
     #vol_columns = [c for c in volume.columns if c.endswith('_Volume')]
+
     if result is None:
         result = pd.DataFrame(index=df.index)
+
     for c in df.columns:
         result[sym + '_' + c] = df[c]
 

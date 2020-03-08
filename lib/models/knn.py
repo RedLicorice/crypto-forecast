@@ -1,5 +1,5 @@
+from lib.models import SKModel, ModelType, ModelFactory, with_params, with_x, with_y, with_xy
 from sklearn.neighbors import KNeighborsClassifier
-from lib.models import *
 from lib.log import logger
 import numpy as np
 
@@ -55,3 +55,5 @@ class KNNModel(SKModel):
                             'y_test' : kwargs.get('y_test')
                         })
         return configs
+
+ModelFactory.register_model('knn', KNNModel)

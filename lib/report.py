@@ -201,4 +201,6 @@ class Report:
         ax.text(0.05, 0.05, '\n'.join(lines), transform=ax.transAxes, fontsize=10,
                 verticalalignment='bottom', bbox=props)
 
+        if kwargs.get('save_to'):
+            plt.savefig(kwargs.get('save_to'), dpi=300)
         plt.show()

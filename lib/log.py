@@ -63,7 +63,7 @@ class logger:
     isStdout = True
     logLevel = logging.DEBUG
     stdoutLevel = logging.DEBUG
-    _logger = None
+    _logger = logging.getLogger('logger')
     _isSetup = False
     @classmethod
     def _parse_level(cls, level):

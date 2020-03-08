@@ -1,7 +1,7 @@
 import logging
 from lib.log import logger
 from lib.symbol import Symbol, DatasetType
-from lib.models.mlp import MLPModel as CurrentModel
+from lib.models import ModelFactory
 from lib.job import Job
 from lib.report import ReportCollection
 import pandas as pd
@@ -14,9 +14,10 @@ logger.setup(
     log_level=logging.DEBUG,
     logger='job_test'
 )
+ModelFactory.discover()
 
 ohlcv = pd.read_csv("./data/result/ohlcv.csv", sep=',', encoding='utf-8', index_col='Date', parse_dates=True)
-btc = pd.read_csv("./data/coinmetrics.io/btc.csv", sep=',', encoding='utf-8', index_col='date', parse_dates=True)
+btc = pd.read_csv("./data/coinmetrics.io/btc.csv", sep=',', encoding='utf-8', index_col='Date', parse_dates=True)
 
 _sym = 'BTC'
 s = Symbol(_sym, ohlcv=ohlcv, blockchain=btc, column_map={
@@ -27,13 +28,13 @@ s = Symbol(_sym, ohlcv=ohlcv, blockchain=btc, column_map={
     'volume': _sym+'_Volume'
 })
 
-#bchn = s.get_dataset(DatasetType.BLOCKCHAIN)
-#correlation(bchn.corr(), 'data/result/blockchain-corr.png', figsize=(32,18))
+# bchn = s.get_dataset(DatasetType.BLOCKCHAIN)
+# correlation(bchn.corr(), 'data/result/blockchain-corr.png', figsize=(32,18))
 # pat = s.get_dataset(DatasetType.OHLCV_PATTERN)
 # bchn.to_csv('data/result/block1chain-dataset.csv', sep=',', encoding='utf-8', index=True, index_label='Date')
 # pat.to_csv('data/result/ohlcv_pattern.csv', sep=',', encoding='utf-8', index=True, index_label='Date')
 # fourier_transform(bchn['CapMVRVCur'])
-m = CurrentModel()
+m = ModelFactory.create_model('mlp')
 #s = s.add_lag(7)
 s = s.time_slice('2018-01-01', '2018-02-27', format='%Y-%m-%d')
 j = Job(symbol=s, model=m)

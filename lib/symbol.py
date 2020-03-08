@@ -3,10 +3,9 @@ from lib.technical_indicators import *
 from lib.utils import to_discrete_single, to_discrete_double, scale
 from enum import Enum
 from datetime import datetime
-import talib
+#import talib
 from functools import reduce
-#from collections import deque
-# ToDO: try aggregating candles at 1, 7 and 30 days
+from collections import deque
 
 # Default mapping used for extracting OHLCV data from dataframe
 DEFAULT_MAP = {
@@ -31,7 +30,6 @@ class Symbol:
     Encapsulate relevant data for a given symbol
     """
     datasets = None
-    index = None
     name = None
 
     def __init__(self, name, **kwargs):
@@ -52,7 +50,7 @@ class Symbol:
         self.build_ohlcv_dataset(ohlcv, column_map=kwargs.get('column_map', DEFAULT_MAP))
         self.build_ta_dataset() # Requires ohlcv dataset
         self.build_ohlcv_pct_dataset() # Requires ohlcv dataset
-        self.build_pattern_dataset()
+        #self.build_pattern_dataset()
         bdf = kwargs.get('blockchain', None)
         if bdf is not None:
             #print('Build blockchain ds!')
@@ -69,7 +67,7 @@ class Symbol:
         null_data = ohlcv.isnull() # Returns dataframe mask where true represents missing value
         # Drop nan values
         ohlcv.dropna(axis='index', how='any', inplace=True)
-        #Determine target (Next day close so shift 1 backwards)
+        # Determine target (Next day close so shift 1 backwards)
         target = ohlcv.close.shift(-1) # Index is already taken care of.
         self.datasets[DatasetType.OHLCV] = (ohlcv, target)
         self.build_higher_tfs()
@@ -79,41 +77,52 @@ class Symbol:
         ohlcv, ohlcv_target = self.datasets[DatasetType.OHLCV]
         if ohlcv is None:
             raise RuntimeError('No ohlcv loaded!')
-        #periods = [7,14,30]
-        #queues = {n:deque([], n) for n in periods}
-        #for i in ohlcv.index:
-        #    for q in queues.values():
-        #        q.append()
-        weekly = ohlcv.resample('W')\
-            .agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'})
-        monthly = ohlcv.resample('M')\
-            .agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'})
-        return
+        _cols = ['open','high','low','close','volume']
+        timeframes = [3, 7, 14, 30]
+        queues = {tf:deque([], tf) for tf in timeframes}
+        results = {tf:[] for tf in timeframes}
+        # There must be an appropriate way of doing this in a better way
+        for i, row in ohlcv.iterrows():
+            for tf, q in queues.items():
+                q.append(row) # Add to the right side of the queue
+                # Build a snapshot of current situation from the queue
+                r = {
+                    #'date': i,
+                    'open': q[0]['open'], # First element's open
+                    'close': q[-1]['close'],
+                    'high': max([e['high'] for e in q]),
+                    'low': min([e['low'] for e in q]),
+                    'volume': sum([e['volume'] for e in q])
+                }
+                # Start a new "candle" when the current one closes
+                if len(q) == tf:
+                    q.clear()
+                results[tf].append(r)
+        results = {tf:pd.DataFrame(data=data, index=ohlcv.index) for tf, data in results.items()}
+        print(results)
 
-
-    def build_pattern_dataset(self):
-        ohlcv, ohlcv_target = self.datasets[DatasetType.OHLCV]
-        if ohlcv is None:
-            raise RuntimeError('No ohlcv loaded!')
-        functions = talib.get_function_groups()['Pattern Recognition']
-
-        patterns = pd.DataFrame(index=ohlcv.index)
-
-        for fname in functions:
-            f = getattr(talib, fname)
-            # findings is a list whose length corresponds to passed values,
-            # The i-th element of said list has value:
-            # +100: bullish pattern detected in i-th position
-            # 0: pattern not detected in i-th position
-            # -100: bearish pattern detected in i-th position
-            findings = f(ohlcv['open'].values, ohlcv['high'].values, ohlcv['low'].values, ohlcv['close'].values)
-            # Discretize values according to label in utils.to_discrete_double
-            patterns[fname] = [3 if v > 0 else 2 if v == 0 else 1 for v in findings]
-
-        # patterns['target'] = self.features[DatasetType.DISCRETE_TA]['target']
-        # self.features[DatasetType.OHLCV_PATTERN] = patterns
-        target = self.datasets[DatasetType.DISCRETE_TA][1]
-        self.datasets[DatasetType.OHLCV_PATTERN] = (patterns, target)
+#    def build_pattern_dataset(self):
+#        ohlcv, ohlcv_target = self.datasets[DatasetType.OHLCV]
+#        if ohlcv is None:
+#            raise RuntimeError('No ohlcv loaded!')
+#        functions = talib.get_function_groups()['Pattern Recognition']
+#        patterns = pd.DataFrame(index=ohlcv.index)
+#
+#       for fname in functions:
+#            f = getattr(talib, fname)
+#            # findings is a list whose length corresponds to passed values,
+#            # The i-th element of said list has value:
+#            # +100: bullish pattern detected in i-th position
+#            # 0: pattern not detected in i-th position
+#            # -100: bearish pattern detected in i-th position
+#            findings = f(ohlcv['open'].values, ohlcv['high'].values, ohlcv['low'].values, ohlcv['close'].values)
+#            # Discretize values according to label in utils.to_discrete_double
+#            patterns[fname] = [3 if v > 0 else 2 if v == 0 else 1 for v in findings]
+#
+#        # patterns['target'] = self.features[DatasetType.DISCRETE_TA]['target']
+#        # self.features[DatasetType.OHLCV_PATTERN] = patterns
+#        target = self.datasets[DatasetType.DISCRETE_TA][1]
+#        self.datasets[DatasetType.OHLCV_PATTERN] = (patterns, target)
 
     def build_ta_dataset(self):
         ohlcv, ohlcv_target = self.datasets[DatasetType.OHLCV]

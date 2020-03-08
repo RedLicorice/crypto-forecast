@@ -1,4 +1,4 @@
-from lib.models import *
+from lib.models import SKModel, ModelType, ModelFactory, with_params, with_x, with_y, with_xy
 from lib.utils import scale, has_negative
 from lib.log import logger
 from sklearn.naive_bayes import MultinomialNB
@@ -50,3 +50,5 @@ class MNBModel(SKModel):
                     'y_test' : kwargs.get('y_test')
                 })
         return configs
+
+ModelFactory.register_model('mnb', MNBModel)

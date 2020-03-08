@@ -3,6 +3,9 @@ from lib.log import logger
 import wrapt
 import numpy as np
 from statsmodels.tools.sm_exceptions import ConvergenceWarning, HessianInversionWarning
+# For models auto discovery
+import importlib
+import pkgutil
 
 ## Decorator for attachable functionality in models
 @wrapt.decorator
@@ -44,6 +47,37 @@ def with_params(wrapped, instance, args, kwargs):
         return wrapped(*args, **kwargs)
     return _execute(*args, **kwargs)
 
+
+class ModelFactory:
+    registered_models = {}
+    registered_modules = None
+
+    @classmethod
+    def discover(cls):
+        if cls.registered_modules:
+            return
+        cls.registered_modules = {
+            name: importlib.import_module(name)
+            for finder, name, ispkg
+            in pkgutil.iter_modules(__path__, __name__ + ".")
+        }
+
+    @classmethod
+    def register_model(cls, name, model):
+        logger.debug("Registered model {} from {}".format(name, str(model)))
+        cls.registered_models[name] = model
+
+    @classmethod
+    def create_model(cls, name):
+        if name in cls.registered_models:
+            return cls.registered_models[name]()
+        raise ValueError("Model {} not registered!".format(name))
+
+    @classmethod
+    def create_all(cls, _exc = None):
+        return [cls.registered_models[name]() for name in cls.registered_models if name not in _exc]
+        #raise ValueError("Model {} not registered!".format(name))
+
 class ModelType(Enum):
     CONTINUOUS_PCT = 1
     CONTINUOUS_PRICE = 2
@@ -64,6 +98,7 @@ class Model:
 
     def __repr__(self):
         return self.name
+
     ## Scikit-learn estimator interface
     def get_params(self):
         return self.default_params

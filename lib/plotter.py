@@ -7,6 +7,7 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 from sklearn.decomposition import PCA
 from scipy.fftpack import fft, fftfreq
+from datetime import datetime
 
 
 def minmax_scaler(values, range=(0,1)):
@@ -59,7 +60,8 @@ def correlation(corr, save_to=None, **kwargs):
 	# Generate a custom diverging colormap
 	cmap = sns.diverging_palette(220, 10, as_cmap=True)
 	# Plot correlation matrix
-	sns.heatmap(data=corr.round(2), annot=True, cmap=cmap, cbar_kws={"shrink": .5}, linewidths=.5, square=True)
+	sns.heatmap(data=corr.round(2), annot=True, cmap=cmap, cbar_kws={"shrink": .5}, linewidths=.5, square=True)\
+		.set_title(kwargs.get('title', '{}'.format(datetime.now())))
 	if save_to:
 		plt.savefig(save_to, dpi=72)
 	plt.show()

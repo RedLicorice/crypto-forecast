@@ -1,4 +1,4 @@
-from lib.models import *
+from lib.models import SKModel, ModelType, ModelFactory, with_params, with_x, with_y, with_xy
 from lib.log import logger
 from sklearn.neural_network import MLPClassifier
 import numpy as np
@@ -66,3 +66,5 @@ class MLPModel(SKModel):
                                 'y_test': y_test
                             })
         return configs
+
+ModelFactory.register_model('mlp', MLPModel)
