@@ -29,7 +29,15 @@ for cdl, vol in zip(candles, volumes):
     ohlc = pd.read_csv(cdl, sep=',', encoding='utf-8', index_col='Date', parse_dates=True)
     volume = pd.read_csv(vol, sep=',', encoding='utf-8', index_col='Date', parse_dates=True)
     vol_columns = [c for c in volume.columns if c.endswith('_Volume')]
+    # Drop columns which are unnamed
+    unnamed_columns = [c for c in ohlc.columns if 'Unnamed' in c]
+    if unnamed_columns:
+        print("Dropping columns {} from candle file {}".format(unnamed_columns, cdl))
+        ohlc.drop(labels=unnamed_columns, axis='columns', inplace=True)
     for c in vol_columns:
+        if 'Unnamed' in c:
+            print("Dropping column {} from volume file {}".format(c, vol))
+            continue
         ohlc[c] = volume[c]
     temp.append(ohlc)
 
@@ -40,6 +48,4 @@ if check_duplicates(whole):
     whole = whole.loc[~whole.index.duplicated(keep='first')]
     check_duplicates(whole, print=True)
 
-whole.to_csv('data/result/polito.csv', sep=',', encoding='utf-8', index=True, index_label='Date')
-period = whole.to_period(freq='W')
-period.to_csv('data/result/polito-weekly.csv', sep=',', encoding='utf-8', index=True, index_label='Date')
+whole.to_csv('data/result/ohlcv.csv', sep=',', encoding='utf-8', index=True, index_label='Date')

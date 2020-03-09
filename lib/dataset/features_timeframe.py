@@ -1,6 +1,6 @@
 import pandas as pd
 from collections import deque
-from lib.dataset import features_ta
+from lib.dataset import features_ta, get_ta_config
 
 def features_timeframe(ohlcv, **kwargs):
 	_cols = ['open', 'high', 'low', 'close', 'volume']
@@ -24,10 +24,10 @@ def features_timeframe(ohlcv, **kwargs):
 def reverse_resample(df, **kwargs):
 	period = kwargs.get('period', 7)
 	_period = kwargs.get('type', 'D')
-	return df.resample('{}{}'.format(period, _period), closed='left', label='right', convention='end', kind='timestamp', loffset='-1D') \
+	rf = df.resample('{}{}'.format(period, _period), closed='left', label='right', convention='end', kind='timestamp', loffset='-1D') \
 		.agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'})
 
-def period_resample(df, **kwargs):
+def periodic_ohlcv_resample(df, **kwargs):
 	period = int(kwargs.get('period', 7))
 	result = []
 	df = df.sort_index().copy()
@@ -35,6 +35,8 @@ def period_resample(df, **kwargs):
 		_df = df.iloc[i:]
 		nth_day = _df.resample('{}D'.format(period), closed='left', label='right', convention='end', kind='timestamp', loffset='-1D') \
 				.agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'}).copy()
+		if kwargs.get('label'):
+			nth_day.columns = ['{}_{}'.format(c, period) for c in nth_day.columns]
 		result.append(nth_day)
 	return pd.concat(result, sort=True).sort_index()
 
@@ -42,10 +44,13 @@ def period_resampled_ta(df, **kwargs):
 	period = int(kwargs.get('period', 7))
 	result = []
 	df = df.sort_index().copy()
+	_ind = get_ta_config(period)
 	for i in range(period):
 		_df = df.iloc[i:]
 		nth_day = _df.resample('{}D'.format(period), closed='left', label='right', convention='end', kind='timestamp', loffset='-1D') \
 				.agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'})
-		nth_day_ta = features_ta(nth_day)
+		nth_day_ta = features_ta(nth_day, indicators=_ind, mode=kwargs.get('mode', 'continuous'))
 		result.append(nth_day_ta)
-	return pd.concat(result, sort=True).sort_index()
+	df = pd.concat(result, sort=True).sort_index()
+	df.columns = ['{}_{}'.format(c, period) for c in df.columns]
+	return df

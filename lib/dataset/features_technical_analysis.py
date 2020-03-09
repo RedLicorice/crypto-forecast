@@ -1,6 +1,8 @@
 import pandas as pd
 from lib.utils import to_discrete_single, to_discrete_double
 from lib.technical_indicators import *
+from lib.log import logger
+import os, json
 
 TA_DEFAULT_INDICATORS = {
 	'rsma' : [(5,20), (8,15), (20,50)],
@@ -21,6 +23,17 @@ TA_DEFAULT_INDICATORS = {
 	'adi':None,
 	'obv':None
 }
+
+def get_ta_config(period):
+	"""""
+		Helper function to load TA indicators from a JSON configuration file,
+		 based on aggregation period.	
+	"""""
+	path = './config/ta_{}.json'.format(period)
+	if not os.path.exists(path):
+		raise ValueError("TA Configuration is missing for period {}\n[MISSING]\t{}".format(period, path))
+	with open(path) as json_file:
+		return json.load(json_file)
 
 def features_ta(ohlcv, **kwargs):
 	if ohlcv is None:
@@ -56,31 +69,56 @@ def get_ta_features(high, low, close, volume, desc):
 
 	# Set numpy to ignore division error and invalid values (since not all features are complete)
 	old_settings = np.seterr(divide='ignore', invalid='ignore')
+	record_count = len(close)
 
 	# Determine relative moving averages
 	for _short, _long in desc['rsma']:
+		if record_count < _short or record_count < _long:
+			logger.error("get_ta_features: not enough records for rsma (short={}, long={}, records={})"
+						 .format(_short, _long, record_count))
+			continue
 		ta['rsma_{}_{}'.format(_short, _long)] = relative_sma(close, _short, _long)
 	for _short, _long in desc['rema']:
+		if record_count < _short or record_count < _long:
+			logger.error("get_ta_features: not enough records for rema (short={}, long={}, records={})"
+						 .format(_short, _long, record_count))
+			continue
 		ta['rema_{}_{}'.format(_short, _long)] = relative_ema(close, _short, _long)
 
 	# MACD Indicator
 	if 'macd' in desc:
 		for _short, _long in desc['macd']:
+			if record_count < _short or record_count < _long:
+				logger.error("get_ta_features: not enough records for rema (short={}, long={}, records={})"
+							 .format(_short, _long, record_count))
+				continue
 			ta['macd_{}_{}'.format(_short, _long)] = moving_average_convergence_divergence(close, _short, _long)
 
 	# Aroon Indicator
 	if 'ao' in desc:
 		for _period in desc['ao']:
+			if record_count < _period:
+				logger.error("get_ta_features: not enough records for ao (period={}, records={})"
+							 .format(_period, record_count))
+				continue
 			ta['ao_{}'.format(_period)] = aroon_oscillator(close, _period)
 
 	# Average Directional Movement Index (ADX)
 	if 'adx' in desc:
 		for _period in desc['adx']:
-			ta['adx_'.format(_period)] = average_directional_index(close, high, low, _period)
+			if record_count < _period:
+				logger.error("get_ta_features: not enough records for adx (period={}, records={})"
+							 .format(_period, record_count))
+				continue
+			ta['adx_{}'.format(_period)] = average_directional_index(close, high, low, _period)
 
 	# Difference between Positive Directional Index(DI+) and Negative Directional Index(DI-)
 	if 'wd' in desc:
 		for _period in desc['wd']:
+			if record_count < _period:
+				logger.error("get_ta_features: not enough records for wd (period={}, records={})"
+							 .format(_period, record_count))
+				continue
 			ta['wd_{}'.format(_period)] = \
 				positive_directional_index(close, high, low, _period) \
 				- negative_directional_index(close, high, low, _period)
@@ -88,25 +126,45 @@ def get_ta_features(high, low, close, volume, desc):
 	# Percentage Price Oscillator
 	if 'ppo' in desc:
 		for _short, _long in desc['ppo']:
-			ta['ppo_{}_{}'] = price_oscillator(close, _short, _long)
+			if record_count < _short or record_count < _long:
+				logger.error("get_ta_features: not enough records for ppo (short={}, long={}, records={})"
+							 .format(_short, _long, record_count))
+				continue
+			ta['ppo_{}_{}'.format(_short, _long)] = price_oscillator(close, _short, _long)
 
 	# Relative Strength Index
 	if 'rsi' in desc:
 		for _period in desc['rsi']:
+			if record_count < _period:
+				logger.error("get_ta_features: not enough records for rsi (period={}, records={})"
+							 .format(_period, record_count))
+				continue
 			ta['rsi_{}'.format(_period)] = relative_strength_index(close, _period)
 
 	# Money Flow Index
 	if 'mfi' in desc:
 		for _period in desc['mfi']:
+			if record_count < _period:
+				logger.error("get_ta_features: not enough records for mfi (period={}, records={})"
+							 .format(_period, record_count))
+				continue
 			ta['mfi'.format(_period)] = money_flow_index(close, high, low, volume, _period)
 
 	# True Strength Index
-	if 'tsi' in desc:
-		ta['tsi'] = true_strength_index(close)
+	if 'tsi' in desc and len(close) >= 40:
+		if record_count < 40:
+			logger.error("get_ta_features: not enough records for tsi (period={}, records={})"
+						 .format(40, record_count))
+		else:
+			ta['tsi'] = true_strength_index(close)
 
 	# Stochastic Oscillator
 	if 'stoch' in desc:
 		for _period in desc['stoch']:
+			if record_count < _period:
+				logger.error("get_ta_features: not enough records for stoch (period={}, records={})"
+							 .format(_period, record_count))
+				continue
 			ta['stoch_{}'.format(_period)] = percent_k(close, _period)
 	# ta.py['stoch'] = percent_k(high, low, close, 14)
 
@@ -114,22 +172,38 @@ def get_ta_features(high, low, close, volume, desc):
 	## Not available in ta.py
 	if 'cmo' in desc:
 		for _period in desc['cmo']:
+			if record_count < _period:
+				logger.error("get_ta_features: not enough records for cmo (period={}, records={})"
+							 .format(_period, record_count))
+				continue
 			ta['cmo_{}'.format(_period)] = chande_momentum_oscillator(close, _period)
 
 	# Average True Range Percentage
 	if 'atrp' in desc:
 		for _period in desc['atrp']:
+			if record_count < _period:
+				logger.error("get_ta_features: not enough records for atrp (period={}, records={})"
+							 .format(_period, record_count))
+				continue
 			ta['atrp_{}'.format(_period)] = average_true_range_percent(close, _period)
 
 	# Percentage Volume Oscillator
 	if 'pvo' in desc:
 		for _short, _long in desc['pvo']:
+			if record_count < _short or record_count < _long:
+				logger.error("get_ta_features: not enough records for pvo (short={}, long={}, records={})"
+							 .format(_short, _long, record_count))
+				continue
 			ta['pvo_{}_{}'.format(_short, _long)] = volume_oscillator(volume, _short, _long)
 
 	# Force Index
 	if 'fi' in desc:
 		fi = force_index(close, volume)
 		for _period in desc['fi']:
+			if record_count < _period:
+				logger.error("get_ta_features: not enough records for atrp (period={}, records={})"
+							 .format(_period, record_count))
+				continue
 			ta['fi_{}'.format(_period)] = exponential_moving_average(fi, _period)
 
 	# Accumulation Distribution Line

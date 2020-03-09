@@ -1,5 +1,4 @@
-import pandas as pd
-from lib.utils import to_discrete_single, to_discrete_double
+
 
 DEFAULT_MAP = {
     'open' : 'open',
@@ -9,7 +8,12 @@ DEFAULT_MAP = {
     'volume' : 'volume'
 }
 
-def features_ohlcv(df, **kwargs):
+def load_ohlcv(df, **kwargs):
+	"""""
+		Take a merged OHLCV dataframe and extract the required symbol.
+		The source dataframe is built by merging all the OHLCV data from
+		 all the symbols in one dataframe by using merge_ohlcv.
+	"""""
 	_map = kwargs.get('column_map', DEFAULT_MAP)
 	if kwargs.get('symbol'):
 		_map = _map_symbol(kwargs.get('symbol'))
@@ -24,6 +28,12 @@ def features_ohlcv(df, **kwargs):
 	# Determine target (Next day close so shift 1 backwards)
 	#target = ohlcv.close.shift(-1)  # Index is already taken care of.
 	return ohlcv
+
+
+def ohlcv_pct_change(ohlcv, periods):
+	# Price pct dataset is well, price from ohlcv but in percent variations
+	price_pct = ohlcv.pct_change(periods)
+	return price_pct
 
 def _map_symbol(_sym):
 	return {
