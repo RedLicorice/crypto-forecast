@@ -52,13 +52,15 @@ all_chains = pd.read_csv("./data/result/blockchains.csv", sep=',', encoding='utf
 
 for _sym in SYMBOLS:
     ohlcv = builder.load_ohlcv(all_ohlcv, symbol=_sym)
-    ohlcv_7d = builder.periodic_ohlcv_resample(ohlcv, period=7, label=True)
-    ohlcv_30d = builder.periodic_ohlcv_resample(ohlcv, period=30, label=True)
+    ohlcv_7d = builder.periodic_ohlcv_pct_change(ohlcv, period=7, label=True)
+    ohlcv_30d = builder.periodic_ohlcv_pct_change(ohlcv, period=30, label=True)
     ta = builder.features_ta(ohlcv)
     ta_7d = builder.period_resampled_ta(ohlcv, period=7)
     ta_30d = builder.period_resampled_ta(ohlcv, period=30)
     df = pd.concat([ohlcv, ohlcv_7d, ohlcv_30d, ta, ta_7d, ta_30d], axis='columns', verify_integrity=True, sort=True)
     df['target'] = builder.target_discrete_price_variation(ohlcv, periods=1)
+    df['target_pct'] = builder.target_price_variation(ohlcv, periods=1)
+    df['target_label'] = builder.target_discrete_price_variation(ohlcv, periods=1, labels=True)
 
     if INTERACTIVE_FIGURE:
         fig = go.Figure(data=[
@@ -86,6 +88,7 @@ for _sym in SYMBOLS:
         ])
         fig.show()
 
-    df.to_csv('data/result/datasets/{}_ohlcv_7_30__ta_7_30_target.csv'.format(_sym.lower()), sep=',', encoding='utf-8', index=True, index_label='Date')
-
-    print("done")
+    df.to_csv('data/result/datasets/{}_ohlcv_7_30__ta_7_30__target.csv'.format(_sym.lower()), sep=',', encoding='utf-8', index=True, index_label='Date')
+    df.to_excel('data/result/datasets/{}_ohlcv_7_30__ta_7_30__target.xlsx'.format(_sym.lower()), index=True, index_label='Date')
+    correlation(df.corr(), 'data/result/datasets/{}_ohlcv_7_30__ta_7_30__corr.png'.format(_sym.lower()), figsize=(64,48))
+    print("{} done.".format(_sym))

@@ -60,6 +60,9 @@ def correlation(corr, save_to=None, **kwargs):
 	# Generate a custom diverging colormap
 	cmap = sns.diverging_palette(220, 10, as_cmap=True)
 	# Plot correlation matrix
+	plt.tight_layout()
+	plt.yticks(np.arange(0.5, len(corr.index), 1), corr.index)
+	plt.xticks(np.arange(0.5, len(corr.columns), 1), corr.columns)
 	sns.heatmap(data=corr.round(2), annot=True, cmap=cmap, cbar_kws={"shrink": .5}, linewidths=.5, square=True)\
 		.set_title(kwargs.get('title', '{}'.format(datetime.now())))
 	if save_to:

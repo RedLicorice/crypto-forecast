@@ -10,3 +10,4 @@ seaborn
 imbalanced-learn
 ta-lib
 wrapt
+openpyxl
