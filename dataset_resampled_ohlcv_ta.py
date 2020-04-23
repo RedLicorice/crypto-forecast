@@ -9,6 +9,7 @@ from lib.models import ModelFactory
 import lib.dataset as builder
 from lib.report import ReportCollection
 import plotly.graph_objects as go
+import json
 
 INTERACTIVE_FIGURE = False
 SYMBOLS = [
@@ -47,17 +48,20 @@ logger.setup(
 # ModelFactory.discover()
 # models = ModelFactory.create_all(['arima','expsmooth','sarima', 'nn', 'kmeans'])
 
-all_ohlcv = pd.read_csv("./data/result/ohlcv.csv", sep=',', encoding='utf-8', index_col='Date', parse_dates=True)
-all_chains = pd.read_csv("./data/result/blockchains.csv", sep=',', encoding='utf-8', index_col='Date', parse_dates=True)
-
+index = {}
 for _sym in SYMBOLS:
-    ohlcv = builder.load_ohlcv(all_ohlcv, symbol=_sym)
+    ohlcv = pd.read_csv("./data/preprocessed/ohlcv/csv/{}.csv".format(_sym), sep=',', encoding='utf-8', index_col='Date', parse_dates=True)
+    cm = pd.read_csv("./data/preprocessed/coinmetrics.io/csv/{}.csv".format(_sym), sep=',', encoding='utf-8', index_col='Date', parse_dates=True)
     ohlcv_7d = builder.periodic_ohlcv_pct_change(ohlcv, period=7, label=True)
     ohlcv_30d = builder.periodic_ohlcv_pct_change(ohlcv, period=30, label=True)
     ta = builder.features_ta(ohlcv)
     ta_7d = builder.period_resampled_ta(ohlcv, period=7)
     ta_30d = builder.period_resampled_ta(ohlcv, period=30)
-    df = pd.concat([ohlcv, ohlcv_7d, ohlcv_30d, ta, ta_7d, ta_30d], axis='columns', verify_integrity=True, sort=True)
+    dataframes = [ohlcv, ohlcv_7d, ohlcv_30d, ta, ta_7d, ta_30d]
+    for i,df in enumerate(dataframes):
+        if df.isnull().values.any():
+            logger.error('Null values in dataframe {} for symbol {}'.format(i, _sym))
+    df = pd.concat(dataframes, axis='columns', verify_integrity=True, sort=True)
     df['target'] = builder.target_discrete_price_variation(ohlcv, periods=1)
     df['target_pct'] = builder.target_price_variation(ohlcv, periods=1)
     df['target_label'] = builder.target_discrete_price_variation(ohlcv, periods=1, labels=True)
@@ -87,8 +91,16 @@ for _sym in SYMBOLS:
             ),
         ])
         fig.show()
+    csv_path = 'data/datasets/resampled_ohlcv_ta/csv/{}.csv'.format(_sym.lower())
+    xls_path = 'data/datasets/resampled_ohlcv_ta/excel/{}.xlsx'.format(_sym.lower())
+    df.to_csv(csv_path, sep=',', encoding='utf-8', index=True, index_label='Date')
+    df.to_excel(xls_path, index=True, index_label='Date')
+    corr = df.corr()
+    correlation(corr, 'data/datasets/resampled_ohlcv_ta/correlation/{}.png'.format(_sym.lower()), title='{} OHLCV and coinmetrics.io data'.format(_sym), figsize=(40,30))
+    corr.to_excel('data/datasets/resampled_ohlcv_ta/correlation/{}.xlsx'.format(_sym.lower()), index=True, index_label='Date')
+    index[_sym] = {'csv':csv_path, 'xls':xls_path}
 
-    df.to_csv('data/result/datasets/{}_ohlcv_7_30__ta_7_30__target.csv'.format(_sym.lower()), sep=',', encoding='utf-8', index=True, index_label='Date')
-    df.to_excel('data/result/datasets/{}_ohlcv_7_30__ta_7_30__target.xlsx'.format(_sym.lower()), index=True, index_label='Date')
-    correlation(df.corr(), 'data/result/datasets/{}_ohlcv_7_30__ta_7_30__corr.png'.format(_sym.lower()), figsize=(64,48))
-    print("{} done.".format(_sym))
+    print('Saved {} in data/datasets/resampled_ohlcv_ta/'.format(_sym))
+
+with open('data/datasets/resampled_ohlcv_ta/index.json', 'w') as f:
+    json.dump(index, f, sort_keys=True, indent=4)

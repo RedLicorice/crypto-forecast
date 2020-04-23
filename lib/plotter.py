@@ -56,17 +56,18 @@ def squareplot(df, y, **kwargs):
 
 def correlation(corr, save_to=None, **kwargs):
 	# Set up the matplotlib figure
-	f, ax = plt.subplots(figsize=kwargs.get('figsize',(16,9)))
+	plt.figure(figsize=kwargs.get('figsize',(16,9)))
+	ax = plt.subplot(111)
 	# Generate a custom diverging colormap
 	cmap = sns.diverging_palette(220, 10, as_cmap=True)
 	# Plot correlation matrix
 	plt.tight_layout()
 	plt.yticks(np.arange(0.5, len(corr.index), 1), corr.index)
 	plt.xticks(np.arange(0.5, len(corr.columns), 1), corr.columns)
-	sns.heatmap(data=corr.round(2), annot=True, cmap=cmap, cbar_kws={"shrink": .5}, linewidths=.5, square=True)\
+	sns.heatmap(data=corr.round(2), ax=ax, annot=True, cmap=cmap, linewidths=.5, square=True, cbar_kws={"shrink": .5})\
 		.set_title(kwargs.get('title', '{}'.format(datetime.now())))
 	if save_to:
-		plt.savefig(save_to, dpi=72)
+		plt.savefig(save_to)
 	plt.show()
 
 def make_meshgrid(x, y, h):

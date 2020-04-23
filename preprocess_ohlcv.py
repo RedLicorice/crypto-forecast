@@ -1,8 +1,9 @@
 import pandas as pd
 from functools import reduce
 from lib.utils import check_duplicates
+import json
 
-print('Merging')
+print('Merging OHLC Candles and Volume data')
 candles = [
     'data/polito/2011_candle.csv',
     'data/polito/2012_candle.csv',
@@ -48,4 +49,23 @@ if check_duplicates(whole):
     whole = whole.loc[~whole.index.duplicated(keep='first')]
     check_duplicates(whole, print=True)
 
-whole.to_csv('data/result/ohlcv.csv', sep=',', encoding='utf-8', index=True, index_label='Date')
+symbols = set([c.split('_')[0] for c in whole.columns if '_' in c])
+index = {}
+for s in symbols:
+    df = whole[[w for w in whole.columns if w.startswith(s)]]
+    df.columns = [c.replace(s+'_', '').replace(s,'close').lower() for c in df.columns]
+    df = df.dropna()
+    csv_path = 'data/preprocessed/ohlcv/csv/{}.csv'.format(s.lower())
+    xls_path = 'data/preprocessed/ohlcv/excel/{}.xlsx'.format(s.lower())
+
+    df.to_csv(csv_path, sep=',', encoding='utf-8', index=True, index_label='Date')
+    df.to_excel(xls_path, index=True, index_label='Date')
+
+    index[s] = {'csv':csv_path, 'xls':xls_path}
+
+    print('Saved {} in data/preprocessed/ohlcv/'.format(s))
+
+with open('data/preprocessed/ohlcv/index.json', 'w') as f:
+    json.dump(index, f, sort_keys=True, indent=4)
+#whole.to_csv('data/result/ohlcv.csv', sep=',', encoding='utf-8', index=True, index_label='Date')
+print('Done')

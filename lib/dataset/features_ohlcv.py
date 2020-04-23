@@ -9,11 +9,6 @@ DEFAULT_MAP = {
 }
 
 def load_ohlcv(df, **kwargs):
-	"""""
-		Take a merged OHLCV dataframe and extract the required symbol.
-		The source dataframe is built by merging all the OHLCV data from
-		 all the symbols in one dataframe by using merge_ohlcv.
-	"""""
 	_map = kwargs.get('column_map', DEFAULT_MAP)
 	if kwargs.get('symbol'):
 		_map = _map_symbol(kwargs.get('symbol'))

@@ -17,7 +17,7 @@ logger.setup(
 ModelFactory.discover()
 
 ohlcv = pd.read_csv("./data/result/ohlcv.csv", sep=',', encoding='utf-8', index_col='Date', parse_dates=True)
-btc = pd.read_csv("./data/coinmetrics.io/btc.csv", sep=',', encoding='utf-8', index_col='Date', parse_dates=True)
+btc = pd.read_csv("./data/coinmetrics.io/btc.csv", sep=',', encoding='utf-8', index_col='date', parse_dates=True)
 
 _sym = 'BTC'
 s = Symbol(_sym, ohlcv=ohlcv, blockchain=btc, column_map={

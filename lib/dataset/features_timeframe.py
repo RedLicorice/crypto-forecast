@@ -50,11 +50,10 @@ def periodic_ohlcv_pct_change(ohlcv, **kwargs):
 	for i in range(period):
 		_df = df.iloc[i:]
 		nth_day = _df.resample('{}D'.format(period), closed='left', label='right', convention='end', kind='timestamp', loffset='-1D') \
-				.agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'})\
-				.pct_change(pct_period)\
-				.copy()
-		nth_day.columns = ['{}_pct{}_{}'.format(c, pct_period, period) for c in nth_day.columns]
-		result.append(nth_day)
+				.agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'})
+		nth_day_pct = nth_day.pct_change(pct_period).fillna(0)
+		nth_day_pct.columns = ['{}_pct{}_{}'.format(c, pct_period, period) for c in nth_day_pct.columns]
+		result.append(nth_day_pct)
 	_result = pd.concat(result, sort=True).sort_index()
 	_result = _result.loc[ohlcv.first_valid_index():ohlcv.last_valid_index()]
 	return _result

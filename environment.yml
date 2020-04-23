@@ -24,3 +24,4 @@ dependencies:
     - enlighten
     - wrapt
     - openpyxl
+    - sklearn-genetic

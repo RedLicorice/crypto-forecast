@@ -3,6 +3,7 @@ keras
 matplotlib
 pandas
 sklearn
+sklearn-genetic
 tensorflow
 git+https://github.com/g8a9/pyti.git@master
 statsmodels

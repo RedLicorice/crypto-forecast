@@ -130,6 +130,7 @@ dmypy.json
 #Exclude features and plots
 data/
 plots/
+reports/
 *.csv
 *.png
 *.zip

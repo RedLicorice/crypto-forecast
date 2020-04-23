@@ -1,4 +1,4 @@
-from lib.dataset.features_blockchain import *
+from lib.dataset.features_general import *
 from lib.dataset.features_ohlcv import *
 from lib.dataset.features_technical_analysis import *
 from lib.dataset.features_timeframe import *
