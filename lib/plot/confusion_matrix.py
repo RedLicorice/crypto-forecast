@@ -2,6 +2,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 import itertools
 
+# data = [
+#     [64549, 15028, 8913, 29, 1087, 33],
+#     [10593, 31637, 3874, 35, 370, 9],
+#     [5579, 2834, 37575, 280, 1290, 2241],
+#     [0, 0, 24, 47825, 3, 0],
+#     [104, 16, 165, 40, 99744, 9],
+#     [17, 5, 1281, 25, 22, 98821],
+# ]
+#
+# headers = ['x', 'y', 'z', 'a', 'b', 'c']
+
+
 def plot_confusion_matrix(cm,
                           target_names,
                           title='Confusion matrix',
@@ -41,3 +53,6 @@ def plot_confusion_matrix(cm,
     plt.ylabel('True label')
     plt.xlabel('Predicted label\naccuracy={:0.4f}; misclass={:0.4f}'.format(accuracy, misclass))
     plt.show()
+
+
+#plot_confusion_matrix(cm=np.array(data), normalize=True, target_names=headers, title='C')
