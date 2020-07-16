@@ -20,13 +20,13 @@ def main():
         df1['target_pct'] = df['target_pct']
         df1['target'] = df['target']
         plot_correlation_matrix(df1.corr(), df1.columns, _sym + ' coinmetrics difference over 1 period', None,
-                                'data/result/datasets/correlation/220520_' + _sym + '_d1.png', True)
+                                'data/datasets/ohlcv_coinmetrics/correlation/' + _sym + '_d1.png', True)
         # plot correlation matrix for percent change features
         df2 = df[[c for c in df.columns if c.endswith('_p1')]].copy()
         df2['target_pct'] = df['target_pct']
         df2['target'] = df['target']
         plot_correlation_matrix(df2.corr(), df2.columns, _sym + ' coinmetrics percent change over 1 period', None,
-                                'data/result/datasets/correlation/220520_' + _sym + '_p1.png', True)
+                                'data/datasets/ohlcv_coinmetrics/correlation/' + _sym + '_p1.png', True)
         print(_sym)
 
 if __name__ == '__main__':

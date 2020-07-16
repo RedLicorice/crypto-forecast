@@ -12,7 +12,7 @@ def plot_correlation_matrix(cm,
     if cmap is None:
         cmap = plt.get_cmap('coolwarm')
 
-    plt.figure(figsize=(20, 20))
+    plt.figure(figsize=(16, 16))
     plt.imshow(cm, interpolation='nearest', cmap=cmap)
     plt.title(title)
     plt.colorbar()
