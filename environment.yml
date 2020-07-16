@@ -24,4 +24,5 @@ dependencies:
     - enlighten
     - wrapt
     - openpyxl
-    - sklearn-genetic
+    #- sklearn-genetic
+    - git+https://github.com/RedLicorice/sklearn-genetic.git@master
