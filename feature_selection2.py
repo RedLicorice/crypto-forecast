@@ -84,6 +84,7 @@ def main(dataset):
         run = {}
         # Split train and test set in an expanding window fashion (decrease test set)
         for testSize in [0.3]:
+            logger.info("Processing {} testSize: {}".format(_sym, testSize))
             X_train, X_test, y_train, y_test = train_test_split(X, y, shuffle=False, test_size=testSize)
             run["test_size={}".format(testSize)] = {
                 'genetic': randomforest_genetic(X_train, y_train, X.columns),
