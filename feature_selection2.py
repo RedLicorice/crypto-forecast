@@ -94,7 +94,7 @@ def main(dataset):
         run = []
         # Split train and test set in an expanding window fashion (decrease test set)
         for X, set in [(_X[pct_features], "pct"), (_X[diff_features], "diff")]:
-            logger.info("Processing {} set {} testSize: {} ".format(_sym, set, testSize))
+            logger.info("Processing {}.{} set {} testSize: {} ".format(dataset, _sym, set, testSize))
             X_train, X_test, y_train, y_test = train_test_split(X, y, shuffle=False, test_size=testSize)
             run.append({
                 'test_size': testSize,
