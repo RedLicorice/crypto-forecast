@@ -85,7 +85,7 @@ def main(dataset):
     for _sym, files in index.items():
         df = pd.read_csv(files['csv'], sep=',', encoding='utf-8', index_col='Date', parse_dates=True)
         df = df.replace([np.inf, -np.inf], np.nan).dropna()
-        features = df.columns.difference(['target', 'target_label','target_pct'])
+        features = [c for c in df.columns.difference(['target', 'target_label','target_pct']) if not c.endswith('_p1') and not c.endswith('_d1')]
         pct_features = features + [c for c in df.columns if c.endswith("_p1")]
         diff_features = features + [c for c in df.columns if c.endswith("_d1")]
         _X = df[df.columns.difference(['target', 'target_label','target_pct'])]
