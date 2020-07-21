@@ -12,17 +12,19 @@ from sklearn.svm import SVC
 import numpy as np
 import json
 
-def randomforest(X, y, columns):
+def randomforest(X, y, X_test, y_test, columns):
     forest = RandomForestClassifier(n_estimators=250, random_state=0)
     forest.fit(X,y)
     importances = {columns[i]:v for i, v in enumerate(forest.feature_importances_)}
     labeled = {str(k): v for k, v in sorted(importances.items(), key=lambda item: -item[1])}
     return {
         'feature_importances': labeled,
-        'rank': {l:i+1 for i, l in enumerate(labeled.keys())}
+        'rank': {l:i+1 for i, l in enumerate(labeled.keys())},
+        'score': forest.score(X,y),
+        'test_score': forest.score(X_test, y_test)
     }
 
-def randomforest_rfecv(X, y, columns):
+def randomforest_rfecv(X, y, X_test, y_test, columns):
     estimator = RandomForestClassifier(n_estimators=250, random_state=0)
     selector = RFECV(estimator, step=1, cv=5, verbose=0)
     selector = selector.fit(X, y)
@@ -37,10 +39,12 @@ def randomforest_rfecv(X, y, columns):
         'rank': {str(k): int(v) for k, v in sorted(rank.items(), key=lambda item: item[1])},
         # pick selected features names
         'support': [columns[i] for i, s in enumerate(selector.support_) if s],
-        'feature_importances': labeled
+        'feature_importances': labeled,
+        'score': selector.score(X,y),
+        'test_score': selector.score(X_test, y_test)
     }
 
-def randomforest_genetic(X, y, columns):
+def randomforest_genetic(X, y, X_test, y_test, columns):
     estimator = RandomForestClassifier(n_estimators=250, random_state=0)
     selector = GeneticSelectionCV(estimator,
                                       cv=5,
@@ -66,12 +70,14 @@ def randomforest_genetic(X, y, columns):
         'support': support_names,
         # pick feature coefficients
         #'coef': {support_names[i]: c for i, c in enumerate(selector.estimator_.coef_)},
-        'feature_importances': labeled
+        'feature_importances': labeled,
+        'score': selector.score(X,y),
+        'test_score': selector.score(X_test, y_test)
     }
 
 def main(dataset):
     indexFile = 'data/datasets/{}/index.json'.format(dataset)
-    resultFile = 'data/datasets/{}/feature_selection2.json'.format(dataset)
+    resultFile = 'data/datasets/{}/feature_selection3.json'.format(dataset)
     with open(indexFile) as f:
         index = json.load(f)
 
@@ -79,19 +85,25 @@ def main(dataset):
     for _sym, files in index.items():
         df = pd.read_csv(files['csv'], sep=',', encoding='utf-8', index_col='Date', parse_dates=True)
         df = df.replace([np.inf, -np.inf], np.nan).dropna()
-        X = df[df.columns.difference(['target', 'target_label','target_pct'])]
+        features = df.columns.difference(['target', 'target_label','target_pct'])
+        pct_features = features + [c for c in df.columns if c.endswith("_p1")]
+        diff_features = features + [c for c in df.columns if c.endswith("_d1")]
+        _X = df[df.columns.difference(['target', 'target_label','target_pct'])]
         y = df[['target']]['target'].values
-        run = {}
+        testSize = 0.3
+        run = []
         # Split train and test set in an expanding window fashion (decrease test set)
-        for testSize in [0.3]:
-            logger.info("Processing {} testSize: {}".format(_sym, testSize))
+        for X, set in [(_X[pct_features], "pct"), (_X[diff_features], "diff")]:
+            logger.info("Processing {} set {} testSize: {} ".format(_sym, set, testSize))
             X_train, X_test, y_train, y_test = train_test_split(X, y, shuffle=False, test_size=testSize)
-            run["test_size={}".format(testSize)] = {
-                'genetic': randomforest_genetic(X_train, y_train, X.columns),
-                'rfecv': randomforest_rfecv(X_train, y_train, X.columns),
-                'randomforest': randomforest(X_train, y_train, X.columns)
-            }
-        result[_sym] = run
+            run.append({
+                'test_size': testSize,
+                'feature_set': set,
+                'genetic': randomforest_genetic(X_train, y_train, X_test, y_test, X.columns),
+                'rfecv': randomforest_rfecv(X_train, y_train, X_test, y_test, X.columns),
+                'randomforest': randomforest(X_train, y_train, X_test, y_test, X.columns)
+            })
+            result[_sym] = run
 
     with open(resultFile, 'w') as f:
         json.dump(result, f, indent=4)
