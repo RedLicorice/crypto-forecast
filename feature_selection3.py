@@ -1,3 +1,5 @@
+# Perform feature selection with randomforest + rfecv but use params
+# from grid search
 import logging
 from lib.log import logger
 import pandas as pd
@@ -7,11 +9,24 @@ from sklearn.feature_selection import RFECV
 from genetic_selection import GeneticSelectionCV
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.svm import SVC
 import numpy as np
 import json
-
+GRIDSEARCH_CLASSIFIER_PARAMS = {
+    'bootstrap': True, 'class_weight': None, 'criterion': 'gini',
+    'max_depth': None, 'max_features': 'auto', 'max_leaf_nodes': None,
+    'min_impurity_decrease': 0.0, 'min_impurity_split': None,
+    'min_samples_leaf': 1, 'min_samples_split': 2,
+    'min_weight_fraction_leaf': 0.0, 'n_estimators': 10, 'n_jobs': 1,
+    'oob_score': False, 'random_state': 0, 'verbose': 0, 'warm_start': False
+}
+CLASSIFIER_PARAM_GRID = {
+    'n_estimators': [200, 500],
+    'max_features': ['auto', 'sqrt', 'log2'],
+    'max_depth': [4, 5, 6, 7, 8],
+    'criterion': ['gini', 'entropy']
+}
 CLASSIFIER_PARAMS = {
     'n_estimators':250,
     'random_state':0,
@@ -22,22 +37,36 @@ CLASSIFIER_PARAMS = {
     'max_features':'log2'# Number of features to consider when looking for the best split. Default is 'auto'
 }
 
-def randomforest(X, y, X_test, y_test, columns):
-    forest = RandomForestClassifier(**CLASSIFIER_PARAMS)
-    forest.fit(X,y)
+def randomforest_gridsearch(X, y, X_test, y_test, columns):
+    logger.info("Start RandomForest Grid search")
+    CV_rfc = GridSearchCV(
+        estimator=RandomForestClassifier(**GRIDSEARCH_CLASSIFIER_PARAMS),
+        param_grid=CLASSIFIER_PARAM_GRID,
+        cv=5
+    )
+    CV_rfc.fit(X, y)
+    forest = CV_rfc.best_estimator_
+    logger.info("End RandomForest Grid search")
+
     importances = {columns[i]:v for i, v in enumerate(forest.feature_importances_)}
     labeled = {str(k): v for k, v in sorted(importances.items(), key=lambda item: -item[1])}
+
     return {
         'feature_importances': labeled,
         'rank': {l:i+1 for i, l in enumerate(labeled.keys())},
         'score': forest.score(X,y),
-        'test_score': forest.score(X_test, y_test)
+        'test_score': forest.score(X_test, y_test),
+        'cv_best_score': CV_rfc.best_score_,
+        #'cv_results': CV_rfc.cv_results_,
+        'cv_bestparams': CV_rfc.best_params_
     }
 
 def randomforest_rfecv(X, y, X_test, y_test, columns):
+    logger.info("Start RandomForest + RFECV")
     estimator = RandomForestClassifier(**CLASSIFIER_PARAMS)
     selector = RFECV(estimator, step=1, cv=5, verbose=0)
     selector = selector.fit(X, y)
+    logger.info("End RandomForest + RFECV")
     # selector ranking to column:rank pairs
     rank = {columns[i]: s for i, s in enumerate(selector.ranking_)}
     # Feature importances
@@ -55,6 +84,7 @@ def randomforest_rfecv(X, y, X_test, y_test, columns):
     }
 
 def randomforest_genetic(X, y, X_test, y_test, columns):
+    logger.info("Start RandomForest + Genetic")
     estimator = RandomForestClassifier(**CLASSIFIER_PARAMS)
     selector = GeneticSelectionCV(estimator,
                                       cv=5,
@@ -72,6 +102,7 @@ def randomforest_genetic(X, y, X_test, y_test, columns):
                                       caching=True,
                                       n_jobs=-1)
     selector = selector.fit(X, y)
+    logger.info("End RandomForest + Genetic")
     support_names = [columns[i] for i, s in enumerate(selector.support_) if s]
     importances = {columns[i]: v for i, v in enumerate(selector.estimator_.feature_importances_)}
     labeled = {str(k): v for k, v in sorted(importances.items(), key=lambda item: -item[1])}
@@ -87,7 +118,7 @@ def randomforest_genetic(X, y, X_test, y_test, columns):
 
 def main(dataset):
     indexFile = 'data/datasets/{}/index.json'.format(dataset)
-    resultFile = 'data/datasets/{}/feature_selection4.json'.format(dataset)
+    resultFile = 'data/datasets/{}/feature_selection5.json'.format(dataset)
     with open(indexFile) as f:
         index = json.load(f)
 
@@ -106,15 +137,17 @@ def main(dataset):
         for X, set in [(_X[pct_features], "pct")]:#, (_X[diff_features], "diff")]:
             logger.info("Processing {}.{} set [{}] testSize: {} ".format(dataset, _sym, set, testSize))
             X_train, X_test, y_train, y_test = train_test_split(X, y, shuffle=False, test_size=testSize)
+            gsr = randomforest_gridsearch(X_train, y_train, X_test, y_test, X.columns)
+            CLASSIFIER_PARAMS = gsr['cv_bestparams']
             run.append({
                 'test_size': testSize,
                 'feature_set': set,
+                'randomforest': gsr,
                 'genetic': randomforest_genetic(X_train, y_train, X_test, y_test, X.columns),
                 'rfecv': randomforest_rfecv(X_train, y_train, X_test, y_test, X.columns),
-                'randomforest': randomforest(X_train, y_train, X_test, y_test, X.columns)
             })
             result[_sym] = run
-        break
+        break  ### /!\ Only does first item!
 
     with open(resultFile, 'w') as f:
         json.dump(result, f, indent=4)

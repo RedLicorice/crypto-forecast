@@ -16,13 +16,13 @@ def main():
         df = df.replace([np.inf, -np.inf], np.nan).dropna()
 
         # plot correlation matrix for differenced features
-        df1 = df[[c for c in df.columns if c.endswith('_d1')]].copy()
+        df1 = df[[c for c in df.columns if c.endswith('_d1')] + ['open','high','low','close','volume']].copy()
         df1['target_pct'] = df['target_pct']
         df1['target'] = df['target']
         plot_correlation_matrix(df1.corr(), df1.columns, _sym + ' coinmetrics difference over 1 period', None,
                                 'data/datasets/ohlcv_coinmetrics/correlation/' + _sym + '_d1.png', True)
         # plot correlation matrix for percent change features
-        df2 = df[[c for c in df.columns if c.endswith('_p1')]].copy()
+        df2 = df[[c for c in df.columns if c.endswith('_p1')] + ['open','high','low','close','volume']].copy()
         df2['target_pct'] = df['target_pct']
         df2['target'] = df['target']
         plot_correlation_matrix(df2.corr(), df2.columns, _sym + ' coinmetrics percent change over 1 period', None,

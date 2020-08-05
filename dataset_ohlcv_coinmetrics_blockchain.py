@@ -71,4 +71,5 @@ for _sym in SYMBOLS:
     print('Saved {} in data/datasets/ohlcv_coinmetrics/'.format(_sym))
 
 with open('data/datasets/ohlcv_coinmetrics/index.json', 'w') as f:
-    json.dump(index, f, sort_keys=True, indent=4)
+    json.dump(index, f, sort_keys=True,
+              indent=4)

@@ -12,3 +12,4 @@ imbalanced-learn
 ta-lib
 wrapt
 openpyxl
+python-docx
