@@ -14,7 +14,9 @@ from sklearn.svm import SVC
 import numpy as np
 import json
 GRIDSEARCH_CLASSIFIER_PARAMS = {
-    'bootstrap': True, 'class_weight': None, 'criterion': 'gini',
+    'bootstrap': True, 'class_weight': 'balanced',
+    #'class_weight': None,
+    'criterion': 'gini',
     'max_depth': None, 'max_features': 'auto', 'max_leaf_nodes': None,
     'min_impurity_decrease': 0.0, 'min_impurity_split': None,
     'min_samples_leaf': 1, 'min_samples_split': 2,
@@ -25,7 +27,8 @@ CLASSIFIER_PARAM_GRID = {
     'n_estimators': [200, 500],
     'max_features': ['auto', 'sqrt', 'log2'],
     'max_depth': [4, 5, 6, 7, 8],
-    'criterion': ['gini', 'entropy']
+    'criterion': ['gini', 'entropy'],
+    'class_weight': ['balanced']
 }
 CLASSIFIER_PARAMS = {
     'n_estimators':250,
