@@ -7,15 +7,15 @@ from multiprocessing import freeze_support
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.feature_selection import RFECV
 from genetic_selection import GeneticSelectionCV
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier
+from lib.bagging_classifier_coefs import BaggingClassifierCoefs
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.svm import SVC
 import numpy as np
 import json
 GRIDSEARCH_CLASSIFIER_PARAMS = {
     'bootstrap': True, 'class_weight': 'balanced',
-    #'class_weight': None,
+    #'class_weight': None, 
     'criterion': 'gini',
     'max_depth': None, 'max_features': 'auto', 'max_leaf_nodes': None,
     'min_impurity_decrease': 0.0, 'min_impurity_split': None,
@@ -37,8 +37,7 @@ CLASSIFIER_PARAMS = {
     'min_samples_leaf':1, # Minimum number of samples required to be at a leaf node. Default is 1, if float is percent of samples
     'max_depth': 8, # The maximum depth of the tree. If None, then nodes are expanded until all leaves are pure or until all leaves contain less than min_samples_split samples.
     'min_samples_split': 0.05,# Minimum number of samples required to split an internal node. Default is 2, if float is percent of samples
-    'max_features':'log2', # Number of features to consider when looking for the best split. Default is 'auto'
-    'class_weight': 'balanced'
+    'max_features':'log2'# Number of features to consider when looking for the best split. Default is 'auto'
 }
 
 def randomforest_gridsearch(X, y, X_test, y_test, columns):
