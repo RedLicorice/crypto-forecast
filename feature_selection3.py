@@ -28,7 +28,7 @@ CLASSIFIER_PARAM_GRID = {
     'max_features': ['auto', 'sqrt', 'log2'],
     'max_depth': [4, 5, 6, 7, 8],
     'criterion': ['gini', 'entropy'],
-    'class_weight': ['balanced']
+    'class_weight': [None, 'balanced', 'balanced_subsample']
 }
 CLASSIFIER_PARAMS = {
     'n_estimators':250,
