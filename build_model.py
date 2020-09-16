@@ -159,6 +159,8 @@ def build_model(dataset, pipeline, experiment, cv=5, scoring='f1', n_jobs='auto'
         logger.info("--- {} end ---".format(_sym))
 
 if __name__ == '__main__':
+    # Set random seed to 0
+    np.random.seed(0)
     parser = argparse.ArgumentParser(description='Build and tune model with GridSearchCV, using specified dataset and pipeline')
     parser.add_argument('-d', dest='dataset', nargs='?', default='', help="Dataset to be used for building the model, in format dataset.index") # nargs='?', default='all_merged.index_improved',
     parser.add_argument('-p', dest='pipeline', nargs='?', default='', help="Pipeline to be used for building the model, must be one of the filenames in pipelines folder")

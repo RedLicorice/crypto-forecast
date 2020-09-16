@@ -174,8 +174,6 @@ def build_simple_dataset():
     with open('data/datasets/all_merged/index.json', 'w') as f:
         json.dump(index, f, sort_keys=True, indent=4)
 
-
-
 def improve_dataset_features(dataset):
     # Create feature plots
     _dataset = load_dataset(dataset, return_index=True)
@@ -189,18 +187,25 @@ def improve_dataset_features(dataset):
         ohlcv_rolling.columns = ['{}_mean3_pct'.format(c) for c in ohlcv_rolling.columns]
 
         ta = _df[entry['features']['ta']]
-        cm = _df[entry['features']['cm']].copy()
+        cm = _df[entry['features']['cm']]
         # for c in cm.columns:
         #     series = cm[c].dropna()
         #     if series.shape[0] <= 0:
         #         continue
         #     if not is_stationary(series):
         #         cm[c] = cm[c].pct_change()
+        ohlcv_stats = pd.DataFrame(index=ohlcv.index)
+        ohlcv_stats['close_pct'] = ohlcv.close.pct_change()
+        ohlcv_stats['day_range'] = ohlcv.high - ohlcv.low # Showld always be > 0, price oscillation range for current day
+        ohlcv_stats['direction'] = ohlcv.close - ohlcv.open # Price direction for the day green > 0, red < 0. Modulus is range.
+        if 'isstotntv' in cm.columns:
+            ohlcv_stats['stock_to_flow'] = ohlcv.volume / cm.isstotntv
+        ohlcv_stats = pd.concat([ohlcv_stats]+[builder.make_lagged(ohlcv_stats, i) for i in range(1,10+1)], axis='columns', verify_integrity=True, sort=True, join='inner')
 
         # Build the dataframe with base features
         improved_df = pd.concat([ohlcv_rolling, ohlcv, ta], axis='columns', verify_integrity=True, sort=True, join='inner')
         # Add lagged features to the dataframe
-        improved_df = pd.concat([improved_df]+[builder.make_lagged(ohlcv, i) for i in range(1,10+1)], axis='columns', verify_integrity=True, sort=True, join='inner')
+        improved_df = pd.concat([improved_df]+[builder.make_lagged(ohlcv, i) for i in range(1,10+1)] + [ohlcv_stats], axis='columns', verify_integrity=True, sort=True, join='inner')
 
         # Save the dataframe
         improved_df.to_csv('data/datasets/all_merged/csv/{}_improved.csv'.format(_sym.lower()), sep=',', encoding='utf-8', index=True,
