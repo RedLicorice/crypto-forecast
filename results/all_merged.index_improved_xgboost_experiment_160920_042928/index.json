@@ -1,7 +1,0 @@
-{
-    "ADA": {
-        "model": "./results/all_merged.index_improved_xgboost_experiment_160920_042928/models/ADA.p",
-        "params": "./results/all_merged.index_improved_xgboost_experiment_160920_042928/models/ADA_parameters.json",
-        "report": "./results/all_merged.index_improved_xgboost_experiment_160920_042928/reports/ADA.json"
-    }
-}
