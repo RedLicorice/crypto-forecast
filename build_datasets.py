@@ -184,17 +184,25 @@ def improve_dataset_features(dataset):
     for _sym, entry in _dataset.items():
         _df = pd.read_csv(entry['csv'], sep=',', encoding='utf-8', index_col='Date', parse_dates=True)
         ohlcv = _df[entry['features']['ohlcv']]
+
+        ohlcv_rolling = ohlcv.rolling(3).mean()
+        ohlcv_rolling.columns = ['{}_mean3_pct'.format(c) for c in ohlcv_rolling.columns]
+
         ta = _df[entry['features']['ta']]
         cm = _df[entry['features']['cm']].copy()
-        for c in cm.columns:
-            series = cm[c].dropna()
-            if series.shape[0] <= 0:
-                continue
-            if not is_stationary(series):
-                cm[c] = cm[c].pct_change()
+        # for c in cm.columns:
+        #     series = cm[c].dropna()
+        #     if series.shape[0] <= 0:
+        #         continue
+        #     if not is_stationary(series):
+        #         cm[c] = cm[c].pct_change()
 
-        improved_df = pd.concat([ohlcv.pct_change(), ta] + [builder.make_lagged(ohlcv.pct_change(), i) for i in range(1,7+1)], axis='columns', verify_integrity=True, sort=True, join='inner')
-        improved_df['day_range'] = ohlcv.close - ohlcv.open # direction of today's price action
+        # Build the dataframe with base features
+        improved_df = pd.concat([ohlcv_rolling, ohlcv, ta], axis='columns', verify_integrity=True, sort=True, join='inner')
+        # Add lagged features to the dataframe
+        improved_df = pd.concat([improved_df]+[builder.make_lagged(ohlcv, i) for i in range(1,10+1)], axis='columns', verify_integrity=True, sort=True, join='inner')
+
+        # Save the dataframe
         improved_df.to_csv('data/datasets/all_merged/csv/{}_improved.csv'.format(_sym.lower()), sep=',', encoding='utf-8', index=True,
                   index_label='Date')
         improved_df.to_excel('data/datasets/all_merged/excel/{}_improved.xlsx'.format(_sym.lower()), index=True, index_label='Date')

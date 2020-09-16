@@ -129,6 +129,8 @@ dmypy.json
 
 #Exclude features and plots
 data/
+results/
+old/reports/
 old/plots/
 old/reports/
 *.csv

@@ -46,8 +46,9 @@ def build_model(dataset, pipeline, experiment, cv=5, scoring='f1', n_jobs='auto'
         logger.info('Start processing: {}'.format(_sym))
         features = pd.read_csv(data['csv'], sep=',', encoding='utf-8', index_col='Date', parse_dates=True)
         targets = pd.read_csv(data['target_csv'], sep=',', encoding='utf-8', index_col='Date', parse_dates=True)
-        # Replace nan with infinity so that it can later be imputed to a finite value
-        features = features.replace([np.inf, -np.inf], np.nan).dropna(axis='columns', how='all').dropna()
+        # Drop columns whose values are all NaN, as well as rows with ANY nan value, then
+        # replace infinity values with nan so that they can later be imputed to a finite value
+        features = features.dropna(axis='columns', how='all').dropna().replace([np.inf, -np.inf], np.nan)
         target = targets.loc[features.index]['binary_bin']
 
         X_train, X_test, y_train, y_test = train_test_split(features.values, target.values, shuffle=False, test_size=test_size)
@@ -106,11 +107,9 @@ def build_model(dataset, pipeline, experiment, cv=5, scoring='f1', n_jobs='auto'
             }
         }
 
-        print("Training set: # Features {}, # Samples {}".format(X_train.shape[1], X_train.shape[0]))
         train_dist = ['\t\tClass {}:\t{}\t({}%%)'.format(k, d['count'], d['pct']) for k, d in get_class_distribution(y_train).items()]
         test_dist = ['\t\tClass {}:\t{}\t({}%%)'.format(k, d['count'], d['pct']) for k, d in get_class_distribution(y_test).items()]
-        print("Test set: # Features {}, # Samples {}".format(X_test.shape[1], X_test.shape[0]))
-        print_class_distribution(y_test)
+
         logger.info('Model evaluation: \n'
               '== Training set ==\n'
               '\t # Features: {} | # Records: {}\n '
