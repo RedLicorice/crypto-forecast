@@ -9,20 +9,13 @@ dependencies:
   - pandas
   - scikit-learn
   - scipy
-  #- keras
   - statsmodels
   - matplotlib
-  #- tensorflow
-  - seaborn
-  #- imbalanced-learn
   - pip
   - joblib
-  - plotly
   - pip:
-    - l3wrapper
+    #- l3wrapper
     - git+https://github.com/g8a9/pyti.git@master
-    - enlighten
-    - wrapt
-    - openpyxl
-    #- sklearn-genetic
+    #- openpyxl
+    - imbalanced-learn
     - git+https://github.com/RedLicorice/sklearn-genetic.git@master

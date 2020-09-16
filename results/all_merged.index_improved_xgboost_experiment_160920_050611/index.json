@@ -1,0 +1,27 @@
+{
+    "ADA": {
+        "model": "./results/all_merged.index_improved_xgboost_experiment_160920_050611/models/ADA.p",
+        "params": "./results/all_merged.index_improved_xgboost_experiment_160920_050611/models/ADA_parameters.json",
+        "report": "./results/all_merged.index_improved_xgboost_experiment_160920_050611/reports/ADA.json"
+    },
+    "BCH": {
+        "model": "./results/all_merged.index_improved_xgboost_experiment_160920_050611/models/BCH.p",
+        "params": "./results/all_merged.index_improved_xgboost_experiment_160920_050611/models/BCH_parameters.json",
+        "report": "./results/all_merged.index_improved_xgboost_experiment_160920_050611/reports/BCH.json"
+    },
+    "BNB": {
+        "model": "./results/all_merged.index_improved_xgboost_experiment_160920_050611/models/BNB.p",
+        "params": "./results/all_merged.index_improved_xgboost_experiment_160920_050611/models/BNB_parameters.json",
+        "report": "./results/all_merged.index_improved_xgboost_experiment_160920_050611/reports/BNB.json"
+    },
+    "BTC": {
+        "model": "./results/all_merged.index_improved_xgboost_experiment_160920_050611/models/BTC.p",
+        "params": "./results/all_merged.index_improved_xgboost_experiment_160920_050611/models/BTC_parameters.json",
+        "report": "./results/all_merged.index_improved_xgboost_experiment_160920_050611/reports/BTC.json"
+    },
+    "BTG": {
+        "model": "./results/all_merged.index_improved_xgboost_experiment_160920_050611/models/BTG.p",
+        "params": "./results/all_merged.index_improved_xgboost_experiment_160920_050611/models/BTG_parameters.json",
+        "report": "./results/all_merged.index_improved_xgboost_experiment_160920_050611/reports/BTG.json"
+    }
+}

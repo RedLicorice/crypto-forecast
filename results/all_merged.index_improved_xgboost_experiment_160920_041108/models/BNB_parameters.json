@@ -1,0 +1,10 @@
+{
+    "c__learning_rate": 0.02,
+    "c__max_depth": 3,
+    "c__n_estimators": 1000,
+    "c__objective": "binary:logistic",
+    "c__reg_alpha": 0.1,
+    "c__reg_lambda": 0.1,
+    "i__strategy": "mean",
+    "p__n_components": 12
+}

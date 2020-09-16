@@ -92,7 +92,7 @@ class logger:
         if not len(cls._logger.handlers):
             if cls.fileName:
                 ffh = logging.Formatter(
-                    '[%(levelname)s|%(asctime)s]]%(name)s: %(message)s',
+                    '[%(levelname)s|%(asctime)s]%(name)s: %(message)s',
                     '%d-%m-%Y %H:%M:%S'
                 )
                 #fh = logging.FileHandler(cls.fileName, mode=cls.fileMode)
@@ -107,7 +107,7 @@ class logger:
 
             if cls.isStdout:
                 fsh = logging.Formatter(
-                    '[%(levelname)s|%(asctime)s]]%(name)s: %(message)s',
+                    '[%(levelname)s|%(asctime)s]%(name)s: %(message)s',
                     '%d-%m-%Y %H:%M:%S'
                 )
                 sh = logging.StreamHandler(sys.stdout)

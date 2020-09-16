@@ -1,0 +1,72 @@
+{
+    "score": 0.6622073578595318,
+    "mse": 0.3377926421404682,
+    "test_score": 0.4883720930232558,
+    "test_mse": 0.5116279069767442,
+    "test_score_7": 0.8571428571428571,
+    "test_mse_7": 0.14285714285714285,
+    "train_report": {
+        "0.0": {
+            "precision": 0.61875,
+            "recall": 0.7122302158273381,
+            "f1-score": 0.6622073578595319,
+            "support": 139
+        },
+        "1.0": {
+            "precision": 0.7122302158273381,
+            "recall": 0.61875,
+            "f1-score": 0.6622073578595319,
+            "support": 160
+        },
+        "accuracy": 0.6622073578595318,
+        "macro avg": {
+            "precision": 0.665490107913669,
+            "recall": 0.665490107913669,
+            "f1-score": 0.6622073578595319,
+            "support": 299
+        },
+        "weighted avg": {
+            "precision": 0.6687728579678064,
+            "recall": 0.6622073578595318,
+            "f1-score": 0.6622073578595319,
+            "support": 299
+        }
+    },
+    "test_report": {
+        "0.0": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1-score": 0.0,
+            "support": 66
+        },
+        "1.0": {
+            "precision": 0.4883720930232558,
+            "recall": 1.0,
+            "f1-score": 0.65625,
+            "support": 63
+        },
+        "accuracy": 0.4883720930232558,
+        "macro avg": {
+            "precision": 0.2441860465116279,
+            "recall": 0.5,
+            "f1-score": 0.328125,
+            "support": 129
+        },
+        "weighted avg": {
+            "precision": 0.23850730124391561,
+            "recall": 0.4883720930232558,
+            "f1-score": 0.32049418604651164,
+            "support": 129
+        }
+    },
+    "training_set": {
+        "features": 311,
+        "records": 299,
+        "class_distribution": null
+    },
+    "test_set": {
+        "features": 311,
+        "records": 129,
+        "class_distribution": null
+    }
+}

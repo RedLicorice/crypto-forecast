@@ -13,3 +13,4 @@ ta-lib
 wrapt
 openpyxl
 python-docx
+xgboost

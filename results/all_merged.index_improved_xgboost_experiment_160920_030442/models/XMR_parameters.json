@@ -1,0 +1,7 @@
+{
+    "c__gamma": 10,
+    "c__learning_rate": 1,
+    "c__max_depth": 1,
+    "c__n_estimators ": 100,
+    "i__strategy": "mean"
+}
