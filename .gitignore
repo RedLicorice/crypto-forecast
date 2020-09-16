@@ -129,7 +129,7 @@ dmypy.json
 
 #Exclude features and plots
 data/
-#results/
+results/
 old/reports/
 old/plots/
 old/reports/
