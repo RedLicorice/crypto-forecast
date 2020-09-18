@@ -1,6 +1,8 @@
 from build_model import build_model
 import pandas as pd
 import json, os
+import argparse
+import numpy as np
 
 PIPELINES = [
     'adaboost_decisiontree',
@@ -31,7 +33,7 @@ def bench_models(benchmark_name):
     for ds in DATASETS:
         result = {}
         for pipe in PIPELINES:
-            experiment = build_model(ds, pipe, 'bench_models')
+            experiment = build_model(ds, pipe, benchmark_name)
             data = {}
             for _sym, results in experiment.items():
                 with open(results['report'], 'r') as f:
@@ -63,4 +65,10 @@ def bench_models(benchmark_name):
                          index=True, index_label='Symbol')
 
 if __name__ == '__main__':
-    bench_models('test')
+    np.random.seed(0)
+    parser = argparse.ArgumentParser(
+        description='Build and tune models, collect results')
+    parser.add_argument('-n', dest='name', nargs='?', default='bench_models',
+                        help="Name for the current benchmark")  # nargs='?', default='all_merged.index_improved',
+    args = parser.parse_args()
+    bench_models(args.name)
