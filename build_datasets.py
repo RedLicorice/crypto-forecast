@@ -381,6 +381,6 @@ if __name__ == '__main__':
         log_level=logging.DEBUG,
         logger='build_dataset'
     )
-    #build_merged_dataset()
+    build_merged_dataset()
     build_atsa_dataset('all_merged')
     build_improved_dataset('all_merged')
