@@ -7,7 +7,7 @@ from sklearn.impute import SimpleImputer
 TARGET='binary_bin'
 
 PARAMETER_GRID = {
-    'c__hidden_layer_sizes':[(2,), (4,), (2,4), (4,8)],
+    'c__hidden_layer_sizes':[(2,4), (4,8)],
     'c__solver':['adam'],
     'c__activation':['logistic','tanh','relu'],
     'c__alpha':[0.0001, 0.001, 0.01],

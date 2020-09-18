@@ -9,9 +9,9 @@ TARGET='binary_bin'
 
 PARAMETER_GRID = {
     'c__n_estimators': [10, 20, 50], # Number of estimators to use in ensemble
-    'c__learning_rate': [1, 0.8, 0.5, 0.2],
-    'c__base_estimator__criterion': ['gini'],#, 'entropy'],
-    'c__base_estimator__splitter': ['random', 'best'], # 'best',
+    'c__learning_rate': [1, 0.5, 0.1],
+    'c__base_estimator__criterion': ['gini'],
+    'c__base_estimator__splitter': ['random', 'best'],
     'c__base_estimator__max_depth': [1, 2, 4],#None,
     'c__base_estimator__min_samples_split': [2],
     'c__base_estimator__min_samples_leaf': [1, 0.05, 0.1, 0.2],
