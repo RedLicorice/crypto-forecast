@@ -24,5 +24,8 @@ def difference(df, **kwargs):
 
 def make_lagged(df, periods=1):
 	shift = df.shift(periods=periods)
-	shift.columns = ['{}_-{}'.format(c, periods) for c in shift.columns]
+	if hasattr(shift, 'columns'):
+		shift.columns = ['{}_lag_-{}'.format(c, periods) for c in shift.columns]
+	elif hasattr(shift, 'name'):
+		shift.rename('{}_lag_-{}'.format(shift.name, periods))
 	return shift

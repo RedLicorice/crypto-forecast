@@ -3,6 +3,9 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import RobustScaler
 from sklearn.impute import SimpleImputer
 
+
+TARGET='binary_bin'
+
 PARAMETER_GRID = {
     'c__hidden_layer_sizes':[(2,), (4,), (2,4), (4,8)],
     'c__solver':['adam'],

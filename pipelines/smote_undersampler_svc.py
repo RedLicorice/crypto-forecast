@@ -5,6 +5,9 @@ from sklearn.impute import SimpleImputer
 from imblearn.over_sampling import SMOTE
 from imblearn.under_sampling import RandomUnderSampler
 
+
+TARGET='binary_bin'
+
 PARAMETER_GRID = {
     'c__C': [0.5, 1, 1.5, 2],
     'c__kernel': ['poly'], #'linear', 'rbf'
