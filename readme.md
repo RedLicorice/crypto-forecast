@@ -23,9 +23,11 @@ Resulting built datasets are stored in `./data/datasets/`
 #### There are three types of datasets:
 - Merged: features are not processed, just stuck together with no lagging. Data is resampled to 3, 7 and 30 periods.
 Parameters for technical analysis are read from `./config/ta_<periods>.json` where <periods> is the sampling frequency.
-- ATSA: features from "Merged" index are processed according to ATSA's publication
+- ATSA: features from "Merged" index are processed according to ATSA's publication (lagged OHLC + TA)
 - Improved: features from "Merged" index are processed and engineered in order to ease model's interpretation, 
-currently does not take resampled data into account
+currently does not take resampled data into account (Includes lagged close + volume, TA-derived features and coinmetrics features)
+
+Social data features only span 2 years so they are not included in the datasets for now.
 
 #### Datasets are composed of:
 - One or more indexes, containing information about file paths and available features
