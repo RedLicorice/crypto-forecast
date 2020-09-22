@@ -4,7 +4,7 @@ from lib.dataset import load_dataset, print_class_distribution, get_class_distri
 from lib.plot import plot_learning_curve
 import matplotlib.pyplot as plt
 import pandas as pd
-from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.model_selection import train_test_split, GridSearchCV, TimeSeriesSplit
 from sklearn.metrics import make_scorer, classification_report, confusion_matrix, plot_roc_curve
 from sklearn.metrics import mean_squared_error, accuracy_score, f1_score, recall_score, precision_score
 import numpy as np
@@ -16,7 +16,7 @@ import argparse
 from datetime import datetime
 
 
-def build_model(dataset, pipeline, experiment, cv=5, scoring='accuracy', n_jobs='auto', test_size=0.3, use_target=None):
+def build_model(dataset, pipeline, experiment, cv=5, scoring='accuracy', n_jobs='auto', test_size=0.3, use_target=None, expanding_window=False):
     models_dir = './results/{}_{}_{}/models/'.format(dataset, pipeline, experiment)
     reports_dir = './results/{}_{}_{}/reports/'.format(dataset, pipeline, experiment)
     experiment_index_file = './results/{}_{}_{}/index.json'.format(dataset, pipeline, experiment)
@@ -49,6 +49,8 @@ def build_model(dataset, pipeline, experiment, cv=5, scoring='accuracy', n_jobs=
 
     if n_jobs == 'auto':
         n_jobs = os.cpu_count()
+    if expanding_window:
+        cv = TimeSeriesSplit(n_splits=cv)
     logger.info('Start experiment: {} using {} on {}'.format(experiment, pipeline, dataset))
     for _sym, data in dataset_index.items():
         logger.info('Start processing: {}'.format(_sym))
@@ -59,7 +61,7 @@ def build_model(dataset, pipeline, experiment, cv=5, scoring='accuracy', n_jobs=
         features = features.dropna(axis='columns', how='all').dropna().replace([np.inf, -np.inf], np.nan)
         target = targets.loc[features.index][p.TARGET if not use_target else use_target]
 
-        X_train, X_test, y_train, y_test = train_test_split(features.values, target.values, shuffle=True, test_size=test_size)
+        X_train, X_test, y_train, y_test = train_test_split(features.values, target.values, shuffle=False, test_size=test_size)
         # Summarize distribution
         logger.info("Start Grid search")
         CV_rfc = GridSearchCV(
@@ -201,6 +203,7 @@ if __name__ == '__main__':
     parser.add_argument('--scoring',dest='scoring', nargs='?', default='precision', help="Scorer to use for cross-validation in GridSearchCV")
     parser.add_argument('--test-size',dest='test_size', nargs='?', default=0.3, help="Portion of data to be kept for blind tests")
     parser.add_argument('--use-target',dest='use_target', nargs='?', default=None, help="Target to use when building the model (problem type)")
+    parser.add_argument('--expanding-window',dest='expanding_window', nargs='?', default=False, help="Use TimeSeriesSplit instead of StratifiedKFold as cross validation provider")
     args = parser.parse_args()
 
     if args.experiment == '':
@@ -217,4 +220,14 @@ if __name__ == '__main__':
     if args.pipeline == '':
         print('Missing pipeline (-p argument)')
         exit(0)
-    build_model(args.dataset, args.pipeline, args.experiment, cv=args.cv, scoring=args.scoring, n_jobs=args.n_jobs, test_size=args.test_size, use_target=args.use_target)
+    build_model(
+        args.dataset,
+        args.pipeline,
+        args.experiment,
+        cv=args.cv,
+        scoring=args.scoring,
+        n_jobs=args.n_jobs,
+        test_size=args.test_size,
+        use_target=args.use_target,
+        expanding_window=args.expanding_window
+    )

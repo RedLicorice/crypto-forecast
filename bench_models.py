@@ -5,12 +5,20 @@ import argparse
 import numpy as np
 
 PIPELINES = [
+    # Boosting
     'adaboost_decisiontree',
+    'plain_xgboost',
+    'plain_dart_xgboost',
+    'pca_kbest_xgboost',
+    'pca_xgboost',
+
+    # Bagging
     'bagging_decisiontree',
     'bagging_linear_svc',
     'bagging_poly_svc',
     'bagging_rbf_svc',
-    'pca_xgboost',
+
+    # Plain ML
     'plain_knn',
     'plain_linear_svc',
     'plain_mlp',
@@ -18,13 +26,11 @@ PIPELINES = [
     'plain_poly_svc',
     'plain_randomforest',
     'plain_rbf_svc',
-    'plain_xgboost',
-    #'rfe_xgboost',
     #'smote_undersampler_svc'
 ]
 
 DATASETS = [
-    #'all_merged.index_improved',
+    'all_merged.index_improved',
     'all_merged.index_atsa'
 ]
 
