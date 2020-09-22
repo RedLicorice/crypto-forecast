@@ -148,7 +148,7 @@ def get_ta_features(high, low, close, volume, desc):
 				logger.error("get_ta_features: not enough records for mfi (period={}, records={})"
 							 .format(_period, record_count))
 				continue
-			ta['mfi'.format(_period)] = money_flow_index(close, high, low, volume, _period)
+			ta['mfi_{}'.format(_period)] = money_flow_index(close, high, low, volume, _period)
 
 	# True Strength Index
 	if 'tsi' in desc and len(close) >= 40:

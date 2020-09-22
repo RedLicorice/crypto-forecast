@@ -1,6 +1,8 @@
 import logging
 from lib.log import logger
 from lib.dataset import load_dataset, print_class_distribution, get_class_distribution
+from lib.plot import plot_learning_curve
+import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import make_scorer, classification_report, confusion_matrix, plot_roc_curve
@@ -57,7 +59,7 @@ def build_model(dataset, pipeline, experiment, cv=5, scoring='accuracy', n_jobs=
         features = features.dropna(axis='columns', how='all').dropna().replace([np.inf, -np.inf], np.nan)
         target = targets.loc[features.index][p.TARGET if not use_target else use_target]
 
-        X_train, X_test, y_train, y_test = train_test_split(features.values, target.values, shuffle=False, test_size=test_size)
+        X_train, X_test, y_train, y_test = train_test_split(features.values, target.values, shuffle=True, test_size=test_size)
         # Summarize distribution
         logger.info("Start Grid search")
         CV_rfc = GridSearchCV(
@@ -76,6 +78,14 @@ def build_model(dataset, pipeline, experiment, cv=5, scoring='accuracy', n_jobs=
         clf = CV_rfc.best_estimator_
         best_score = CV_rfc.best_score_
         best_params = CV_rfc.best_params_
+
+        # Plot learning curve for the classifier
+        est = p.estimator
+        est.set_params(**best_params)
+        plot_learning_curve(est, "{} - Learning curves".format(_sym), X_train, y_train)
+        curve_path = '{}{}_learning_curve.png'.format(reports_dir, _sym)
+        plt.savefig(curve_path)
+        plt.close()
 
         # Test ensemble's performance on training and test sets
         predictions1 = clf.predict(X_train)
