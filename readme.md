@@ -25,8 +25,15 @@ There are three types of datasets:
 - ATSA: features are processed according to ATSA's publication
 - Improved: features processed and engineered in order to ease model's interpretation
 
+Datasets are composed of:
+- One or more indexes, containing information about file paths and available features
+- A set of CSV and Excel files for features, one for each symbol
+- A set of CSV and Excel files for target features, one for each symbol
+
 ### Build model
 Use `python build_model.py -d <dataset> -p <pipeline>` to build models for the dataset index.
+
+`<dataset>` is formatted as `<dataset_name>.<dataset_index>`
 
 Additional parameters are:
 - `-e` experiment name, default is `experiment_<date>_<time>`
