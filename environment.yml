@@ -1,4 +1,4 @@
-name: crypto-forecast
+name: crypto-forecast2
 channels:
   - defaults
   - conda-forge
@@ -13,9 +13,10 @@ dependencies:
   - matplotlib
   - pip
   - joblib
+  - tensorflow
   - pip:
-    #- l3wrapper
     - git+https://github.com/g8a9/pyti.git@master
-    #- openpyxl
     - imbalanced-learn
     - git+https://github.com/RedLicorice/sklearn-genetic.git@master
+    - xgboost
+    - enlighten

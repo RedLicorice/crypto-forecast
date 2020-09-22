@@ -1,16 +1,9 @@
 numpy
-keras
 matplotlib
 pandas
 sklearn
-sklearn-genetic
-tensorflow
+git+https://github.com/RedLicorice/sklearn-genetic.git@master
 git+https://github.com/g8a9/pyti.git@master
 statsmodels
-seaborn
 imbalanced-learn
-ta-lib
-wrapt
-openpyxl
-python-docx
 xgboost

@@ -74,7 +74,7 @@ if __name__ == '__main__':
     np.random.seed(0)
     parser = argparse.ArgumentParser(
         description='Build and tune models, collect results')
-    parser.add_argument('-n', dest='name', nargs='?', default='bench_models',
+    parser.add_argument('-n', dest='name', nargs='?', default='benchmark',
                         help="Name for the current benchmark")  # nargs='?', default='all_merged.index_improved',
     args = parser.parse_args()
     bench_models(args.name)
