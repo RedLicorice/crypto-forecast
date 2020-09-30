@@ -64,6 +64,21 @@ def plot_dataset_features(dataset, plot_features=True, plot_target=False):
             plt.savefig('data/datasets/all_merged/targets/{}.png'.format(_sym.lower()))
             plt.close()
 
+def convergence_between_series(s1: pd.Series, s2: pd.Series, W):
+    # Fit a line on values in the window, then
+    # return the angular coefficient's sign: 1 if positive, 0 otherwise
+    def get_alpha(values: np.ndarray):
+        slope, intercept, r_value, p_value, std_err = linregress(np.arange(0, values.size), values)
+        #alpha = np.arctan(slope) / (np.pi / 2)
+        return 1 if slope > 0 else 0
+    # Map both series to their direction (0 decreasing, 1 increasing)
+    s1_ = s1.rolling(W).apply(get_alpha, raw=True)
+    s2_ = s2.rolling(W).apply(get_alpha, raw=True)
+    # Result should be true if both values have the same direction (either both 0's or both 1's)
+    #  XOR has the inverse of the truth table we need, so we just negate it.
+    result = np.logical_not(np.logical_xor(s1_, s2_)).astype(int)
+    return result
+
 def build_old_dataset():
     ohlcv_index = load_preprocessed('ohlcv')
     cm_index = load_preprocessed('coinmetrics.io')
@@ -178,7 +193,9 @@ def build_merged_dataset():
         close = ohlcv['close']
         target_pct = builder.target_price_variation(ohlcv['close'], periods=1)
         target_class = builder.target_discrete_price_variation(target_pct)
+        target_binary = builder.target_binary_price_variation(target_pct)
         target_labels = builder.target_label(target_class, labels=['SELL', 'HOLD', 'BUY'])
+        target_binary_labels = builder.target_label(target_binary, labels=['SELL', 'BUY'])
         target_bin = builder.target_binned_price_variation(target_pct, n_bins=3)
         target_bin_binary = builder.target_binned_price_variation(target_pct, n_bins=2)
         target_bin_labels = builder.target_label(target_bin, labels=['SELL', 'HOLD', 'BUY'])
@@ -186,14 +203,16 @@ def build_merged_dataset():
         # Merge all the datasets
         dataframes = [ohlcv, ohlcv_3d, ohlcv_7d, ohlcv_30d, ta, ta_3d, ta_7d, ta_30d, cm]#, social_pct]
         df = pd.concat(dataframes, axis='columns', verify_integrity=True, sort=True, join='inner')
-        target = pd.concat([close, target_pct, target_class, target_bin, target_bin_binary, target_labels, target_bin_labels, target_bin_binary_labels], axis=1)
+        target = pd.concat([close, target_pct, target_class, target_binary, target_bin, target_bin_binary, target_labels, target_binary_labels, target_bin_labels, target_bin_binary_labels], axis=1)
         target.columns = [
             'close',
             'pct',
             'class',
+            'binary',
             'bin',
             'binary_bin',
             'labels',
+            'binary_labels',
             'bin_labels',
             'binary_bin_labels'
         ]
@@ -269,22 +288,6 @@ def build_atsa_dataset(source_index, W=10):
         logger.info('Saved {} in data/datasets/all_merged/'.format(_sym))
     with open('data/datasets/all_merged/index_atsa.json', 'w') as f:
         json.dump(index, f, sort_keys=True, indent=4)
-
-
-def convergence_between_series(s1: pd.Series, s2: pd.Series, W):
-    # Fit a line on values in the window, then
-    # return the angular coefficient's sign: 1 if positive, 0 otherwise
-    def get_alpha(values: np.ndarray):
-        slope, intercept, r_value, p_value, std_err = linregress(np.arange(0, values.size), values)
-        #alpha = np.arctan(slope) / (np.pi / 2)
-        return 1 if slope > 0 else 0
-    # Map both series to their direction (0 decreasing, 1 increasing)
-    s1_ = s1.rolling(W).apply(get_alpha, raw=True)
-    s2_ = s2.rolling(W).apply(get_alpha, raw=True)
-    # Result should be true if both values have the same direction (either both 0's or both 1's)
-    #  XOR has the inverse of the truth table we need, so we just negate it.
-    result = np.logical_not(np.logical_xor(s1_, s2_)).astype(int)
-    return result
 
 def build_improved_dataset(source_index, W=10):
     _dataset = load_dataset(source_index, return_index=True)
@@ -460,7 +463,7 @@ def build_improved_dataset(source_index, W=10):
         # lagged_close = pd.concat([ohlcv.close.pct_change()] + [builder.make_lagged(ohlcv.close.pct_change(), i) for i in range(1,10+1)], axis='columns', verify_integrity=True, sort=True, join='inner')
         # lagged_close.columns = ['close_pct'] + ['close_pct_lag-{}'.format(i) for i in range(1, W +1)]
 
-        ohlc = ohlcv[['close', 'volume']]
+        ohlc = ohlcv[['close', 'volume']].pct_change()
         lagged_ohlc = pd.concat([ohlc] + [builder.make_lagged(ohlc, i) for i in range(1, W + 1)], axis='columns',
                                 verify_integrity=True, sort=True, join='inner')
 
@@ -512,7 +515,67 @@ def build_improved_dataset(source_index, W=10):
     with open('data/datasets/all_merged/index_improved.json', 'w') as f:
         json.dump(index, f, sort_keys=True, indent=4)
 
+def build_faceted_dataset(source_index, W=10):
+    _dataset = load_dataset(source_index, return_index=True)
+    index = {}
 
+    for _sym, entry in _dataset.items():
+        _df = pd.read_csv(entry['csv'], sep=',', encoding='utf-8', index_col='Date', parse_dates=True)
+        _target = pd.read_csv(entry['target_csv'], sep=',', encoding='utf-8', index_col='Date', parse_dates=True)
+
+        ta = _df[entry['features']['ta']]
+        cm = _df[entry['features']['cm']]
+
+        # Price history facet (Daily variation of ohlc in last W trading days)
+        ohlc = _df[['open', 'high', 'low', 'close']].pct_change()
+        ohlc.columns = ['open_pct', 'high_pct', 'low_pct', 'close_pct']
+        history_facet = pd.concat([ohlc] + [builder.make_lagged(ohlc, i) for i in range(1, W + 1)], axis='columns',
+                            verify_integrity=True, sort=True, join='inner')
+        # Price trend facet (REMA/RSMA, MACD, AO, ADX, WD+ - WD-)
+        trend_facet = ta[["rsma_5_20", "rsma_8_15", "rsma_20_50", "rema_5_20", "rema_8_15", "rema_20_50", "macd_12_26", "ao_14", "adx_14", "wd_14"]]
+        # Volatility facet (CMO, ATRp)
+        volatility_facet = ta[["cmo_14", "atrp_14"]]
+        # Volume facet (Volume pct, PVO, ADI, OBV)
+        volume_facet = pd.concat([_df.volume.pct_change().replace([np.inf, -np.inf], 0), ta[["pvo_12_26", "adi", "obv"]]], axis='columns', verify_integrity=True, sort=True, join='inner')
+        # On-chain facet
+        cm_1 = cm.reindex(columns=['adractcnt', 'txtfrvaladjntv', 'isstotntv', 'feetotntv', 'splycur', 'hashrate', 'txtfrcount']).pct_change()
+        cm_2 = cm.reindex(columns=['isscontpctann'])
+        chain_facet = pd.concat([cm_1, cm_2], axis='columns', verify_integrity=True, sort=True, join='inner')
+
+        # Drop columns whose values are all nan or inf from each facet
+        with pd.option_context('mode.use_inf_as_na', True): # Set option temporarily
+            history_facet = history_facet.dropna(axis='columns', how='all')
+            trend_facet = trend_facet.dropna(axis='columns', how='all')
+            volatility_facet = volatility_facet.dropna(axis='columns', how='all')
+            volume_facet = volume_facet.dropna(axis='columns', how='all')
+            chain_facet = chain_facet.dropna(axis='columns', how='all')
+
+        improved_df = pd.concat([history_facet, trend_facet, volatility_facet, volume_facet, chain_facet],
+                                axis='columns', verify_integrity=True, sort=True, join='inner')
+        # Drop the first 30 rows
+        improved_df = improved_df[30:]
+        # Save the dataframe
+        improved_df.to_csv('data/datasets/all_merged/csv/{}_faceted.csv'.format(_sym.lower()), sep=',', encoding='utf-8', index=True,
+                  index_label='Date')
+        improved_df.to_excel('data/datasets/all_merged/excel/{}_faceted.xlsx'.format(_sym.lower()), index=True, index_label='Date')
+
+        # Add symbol to index
+        index[_sym] = {
+            'csv': 'data/datasets/all_merged/csv/{}_faceted.csv'.format(_sym.lower()),
+            'xls': 'data/datasets/all_merged/excel/{}_faceted.xlsx'.format(_sym.lower()),
+            'target_csv': 'data/datasets/all_merged/csv/{}_target.csv'.format(_sym.lower()),
+            'target_xls': 'data/datasets/all_merged/excel/{}_target.xlsx'.format(_sym.lower()),
+            'features': {
+                'price_history': [c for c in history_facet.columns],
+                'trend': [c for c in trend_facet.columns],
+                'volatility': [c for c in volatility_facet.columns],
+                'volume': [c for c in volume_facet.columns],
+                'chain': [c for c in chain_facet.columns],
+            }
+        }
+        logger.info('Saved {} in data/datasets/all_merged/'.format(_sym))
+    with open('data/datasets/all_merged/index_faceted.json', 'w') as f:
+        json.dump(index, f, sort_keys=True, indent=4)
 
 if __name__ == '__main__':
     logger.setup(
@@ -522,6 +585,7 @@ if __name__ == '__main__':
         log_level=logging.DEBUG,
         logger='build_dataset'
     )
-    build_merged_dataset()
-    build_atsa_dataset('all_merged')
-    build_improved_dataset('all_merged')
+    #build_merged_dataset()
+    #build_atsa_dataset('all_merged')
+    #build_improved_dataset('all_merged')
+    build_faceted_dataset('all_merged')

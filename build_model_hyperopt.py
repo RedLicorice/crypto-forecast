@@ -8,6 +8,9 @@ import pandas as pd
 from sklearn.model_selection import train_test_split, GridSearchCV, TimeSeriesSplit
 from sklearn.metrics import make_scorer, classification_report, plot_confusion_matrix, plot_roc_curve, plot_precision_recall_curve
 from sklearn.metrics import mean_squared_error, accuracy_score, f1_score, recall_score, precision_score
+from sklearn.impute import SimpleImputer
+from hpsklearn import HyperoptEstimator, any_classifier, any_preprocessing
+from hyperopt import tpe
 import numpy as np
 import os
 import pickle
@@ -69,37 +72,38 @@ def build_model(dataset, pipeline, experiment, param_grid=None, cv=5, scoring='a
         features = features.dropna(axis='columns', how='all').dropna().replace([np.inf, -np.inf], np.nan)
         target = targets.loc[features.index][current_target]
 
+        features = features.replace([np.inf, -np.inf], np.nan)
+        imputer = SimpleImputer()
+        imputer.fit(features.values)
+        feat_imp_values = imputer.transform(features.values)
+        features = pd.DataFrame(feat_imp_values, index=features.index, columns=features.columns)
         X_train, X_test, y_train, y_test = train_test_split(features.values, target.values, shuffle=False, test_size=test_size)
         # Summarize distribution
-        logger.info("Start Grid search")
+        logger.info("Start Hyperopt search")
         if expanding_window:
             cv = TimeSeriesSplit(n_splits=expanding_window)
         #cv = sliding_window_split(X_train, 0.1)
-        CV_rfc = GridSearchCV(
-            estimator=p.estimator,
-            param_grid=param_grid,
-            cv=cv,
-            n_jobs=n_jobs,
-            scoring=scoring,
-            refit='precision',
-            verbose=1,
-        )
-        CV_rfc.fit(X_train, y_train)
-        logger.info("End Grid search")
+        est = HyperoptEstimator(classifier=any_classifier('my_clf'),
+                          preprocessing=any_preprocessing('my_pre'),
+                          algo=tpe.suggest,
+                          max_evals=100,
+                          trial_timeout=120)
+        est.fit(X_train, y_train)
+        logger.info("End Hyperopt search")
 
         # Take the fitted ensemble with tuned hyperparameters
-        clf = CV_rfc.best_estimator_
-        best_score = CV_rfc.best_score_
-        best_params = CV_rfc.best_params_
+        clf = est.best_model()['learner']
+        best_score = est.score(X_train, y_train)
+        best_params = {}
 
         # Plot learning curve for the classifier
-        est = p.estimator
-        est.set_params(**best_params)
+        #est = p.estimator
+        #est.set_params(**best_params)
 
         _, axes = plt.subplots(3, 3, figsize=(20, 12), dpi=200, constrained_layout=True)
         #plt.tight_layout()
         _train_ax = [ axes[0][0], axes[0][1], axes[0][2] ]
-        plot_learning_curve(est, "{} - Learning curves (Train)".format(_sym), X_train, y_train, axes=_train_ax, cv=cv)
+        #plot_learning_curve(est, "{} - Learning curves (Train)".format(_sym), X_train, y_train, axes=_train_ax, cv=cv)
 
         axes[1][0].set_title("{} - ROC (Train)".format(_sym))
         plot_roc_curve(clf, X_train, y_train, ax=axes[1][0])
@@ -234,7 +238,7 @@ if __name__ == '__main__':
     parser.add_argument('--test-size',dest='test_size', nargs='?', default=0.3, help="Portion of data to be kept for blind tests")
     parser.add_argument('--use-target',dest='use_target', nargs='?', default=None, help="Target to use when building the model (problem type)")
     parser.add_argument('--expanding-window',dest='expanding_window', nargs='?', default=False, type=int, help="Use TimeSeriesSplit instead of StratifiedKFold as cross validation provider with specified number of splits")
-    parser.add_argument('--parameter-grid',dest='param_grid', nargs='?', default=None, type=int, help="Use a custom parameter grid (path to json)")
+    parser.add_argument('--parameter-grid',dest='param_grid', nargs='?', default=None, type=int, help="Use TimeSeriesSplit instead of StratifiedKFold as cross validation provider with specified number of splits")
     args = parser.parse_args()
 
     if args.experiment == '':

@@ -6,9 +6,9 @@ import numpy as np
 
 PIPELINES = [
     # Boosting
-    'adaboost_decisiontree',
+    #'adaboost_decisiontree', # We already have xgboost
     'plain_xgboost',
-    'plain_dart_xgboost',
+    #'plain_dart_xgboost', # Much slower, no improvements
     'pca_kbest_xgboost',
     'pca_xgboost',
 
@@ -21,17 +21,18 @@ PIPELINES = [
     # Plain ML
     'plain_knn',
     'plain_linear_svc',
+    'plain_poly_svc',
+    'plain_rbf_svc',
     'plain_mlp',
     'plain_mnb',
-    'plain_poly_svc',
     'plain_randomforest',
-    'plain_rbf_svc',
     #'smote_undersampler_svc'
 ]
 
 DATASETS = [
     'all_merged.index_improved',
-    'all_merged.index_atsa'
+    'all_merged.index_atsa',
+    'all_merged.index_faceted'
 ]
 
 def bench_models(benchmark_name):

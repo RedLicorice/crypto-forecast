@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from lib.dataset.utils import to_discrete_double
+from lib.dataset.utils import to_discrete_double, to_discrete_single
 from sklearn.preprocessing import KBinsDiscretizer
 
 def target_price(close : pd.Series, **kwargs):
@@ -12,6 +12,10 @@ def target_price_variation(close : pd.Series, **kwargs):
 
 def target_discrete_price_variation(pct_var : pd.Series, **kwargs):
     classes = to_discrete_double(pct_var.fillna(method='ffill'), -0.01, 0.01)
+    return pd.Series(classes, index=pct_var.index)
+
+def target_binary_price_variation(pct_var : pd.Series, **kwargs):
+    classes = to_discrete_single(pct_var.fillna(method='ffill'), 0.00)
     return pd.Series(classes, index=pct_var.index)
 
 def target_label(classes, **kwargs):

@@ -24,7 +24,7 @@ def features_timeframe(ohlcv, **kwargs):
 def reverse_resample(df, **kwargs):
 	period = kwargs.get('period', 7)
 	_period = kwargs.get('type', 'D')
-	rf = df.resample('{}{}'.format(period, _period), closed='left', label='right', convention='end', kind='timestamp', loffset='-1D') \
+	rf = df.resample('{}{}'.format(period, _period), closed='left', label='right', convention='end', kind='timestamp') \
 		.agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'})
 
 def periodic_ohlcv_resample(ohlcv, **kwargs):
@@ -33,7 +33,7 @@ def periodic_ohlcv_resample(ohlcv, **kwargs):
 	df = ohlcv.sort_index().copy()
 	for i in range(period):
 		_df = df.iloc[i:]
-		nth_day = _df.resample('{}D'.format(period), closed='left', label='right', convention='end', kind='timestamp', loffset='-1D') \
+		nth_day = _df.resample('{}D'.format(period), closed='left', label='right', convention='end', kind='timestamp') \
 				.agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'}).copy()
 		if kwargs.get('label'):
 			nth_day.columns = ['{}_{}'.format(c, period) for c in nth_day.columns]
@@ -49,7 +49,7 @@ def periodic_ohlcv_pct_change(ohlcv, **kwargs):
 	df = ohlcv.sort_index().copy()
 	for i in range(period):
 		_df = df.iloc[i:]
-		nth_day = _df.resample('{}D'.format(period), closed='left', label='right', convention='end', kind='timestamp', loffset='-1D') \
+		nth_day = _df.resample('{}D'.format(period), closed='left', label='right', convention='end', kind='timestamp') \
 				.agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'})
 		nth_day_pct = nth_day.pct_change(pct_period).fillna(0)
 		nth_day_pct.columns = ['{}_pct{}_{}'.format(c, pct_period, period) for c in nth_day_pct.columns]
@@ -66,7 +66,7 @@ def period_resampled_ta(ohlcv, **kwargs):
 	# Fai un resample per ciascuno dei primi N giorni
 	for i in range(period):
 		_df = df.iloc[i:]
-		nth_day = _df.resample('{}D'.format(period), closed='left', label='right', convention='end', kind='timestamp', loffset='-1D') \
+		nth_day = _df.resample('{}D'.format(period), closed='left', label='right', convention='end', kind='timestamp') \
 				.agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'})
 		nth_day_ta = features_ta(nth_day, indicators=_ind, mode=kwargs.get('mode', 'continuous'))
 		result.append(nth_day_ta)
