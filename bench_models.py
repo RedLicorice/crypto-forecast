@@ -49,11 +49,12 @@ def bench_models(benchmark_name):
                     continue
                 train_accuracy = report['training_set']['accuracy']
                 train_precision = report['training_set']['precision']
-                train_mse = report['training_set']['precision']
+                train_mse = report['training_set']['mse']
 
                 test_accuracy = report['test_set']['accuracy']
                 test_precision = report['test_set']['precision']
-                test_mse = report['test_set']['precision']
+                test_mse = report['test_set']['mse']
+
 
                 data[_sym] = [train_accuracy, test_accuracy, train_precision, test_precision, train_mse,  test_mse]
             pipe_df = pd.DataFrame.from_dict(data, orient='index', columns=['train_accuracy', 'test_accuracy','train_precision','test_precision','train_mse','test_mse'])
