@@ -1,4 +1,4 @@
-name: crypto-forecast2
+name: crypto-forecast
 channels:
   - defaults
   - conda-forge
