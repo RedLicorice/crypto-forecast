@@ -13,7 +13,7 @@ PIPELINES = [
     # 'pca_xgboost', # No improvement w.r.t xgboost
 
     # Bagging
-    'bagging_decisiontree',
+    #'bagging_decisiontree', # Gets stuck
     'bagging_linear_svc',
     'bagging_poly_svc',
     'bagging_rbf_svc',
@@ -48,7 +48,7 @@ def bench_models(benchmark_name):
         for ds in DATASETS:
             result = {}
             for pipe in PIPELINES:
-                experiment = build_model(ds, pipe, benchmark_name)
+                experiment = build_model(ds, pipe, benchmark_name, scoring='precision', use_target=t)
                 data = {}
                 for _sym, results in experiment.items():
                     with open(results['report'], 'r') as f:
