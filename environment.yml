@@ -22,3 +22,4 @@ dependencies:
     - xgboost
     - enlighten
     - openpyxl
+    - scikit-plot

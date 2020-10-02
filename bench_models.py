@@ -35,6 +35,13 @@ DATASETS = [
     'all_merged.index_faceted'
 ]
 
+TARGETS = [
+    'class',
+    'binary',
+    'bin',
+    'binary_bin'
+]
+
 def bench_models(benchmark_name):
     os.makedirs('./benchmarks/{}/'.format(benchmark_name), exist_ok=True)
     for ds in DATASETS:

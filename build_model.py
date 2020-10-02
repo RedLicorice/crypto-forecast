@@ -6,8 +6,9 @@ from lib.sliding_window_split import sliding_window_split
 import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.model_selection import train_test_split, GridSearchCV, TimeSeriesSplit
-from sklearn.metrics import make_scorer, classification_report, plot_confusion_matrix, plot_roc_curve, plot_precision_recall_curve
+from sklearn.metrics import make_scorer, classification_report, plot_confusion_matrix
 from sklearn.metrics import mean_squared_error, accuracy_score, f1_score, recall_score, precision_score
+from scikitplot.metrics import plot_roc, plot_precision_recall
 import numpy as np
 import os
 import pickle
@@ -26,7 +27,7 @@ def build_model(dataset, pipeline, experiment, param_grid=None, cv=5, scoring='a
         scoring = scoring.split(',')
     # if scoring is precision, make scorer manually to suppress zero_division warnings in case of heavy bias
     if scoring == 'precision':
-        scoring = make_scorer(precision_score, zero_division=1)
+        scoring = make_scorer(precision_score, zero_division=1, average='micro')
     os.makedirs(models_dir, exist_ok=True)
     os.makedirs(reports_dir, exist_ok=True)
     # Setup logging
@@ -81,8 +82,7 @@ def build_model(dataset, pipeline, experiment, param_grid=None, cv=5, scoring='a
             cv=cv,
             n_jobs=n_jobs,
             scoring=scoring,
-            refit='precision',
-            verbose=1,
+            verbose=1
         )
         CV_rfc.fit(X_train, y_train)
         logger.info("End Grid search")
@@ -101,17 +101,21 @@ def build_model(dataset, pipeline, experiment, param_grid=None, cv=5, scoring='a
         _train_ax = [ axes[0][0], axes[0][1], axes[0][2] ]
         plot_learning_curve(est, "{} - Learning curves (Train)".format(_sym), X_train, y_train, axes=_train_ax, cv=cv)
 
-        axes[1][0].set_title("{} - ROC (Train)".format(_sym))
-        plot_roc_curve(clf, X_train, y_train, ax=axes[1][0])
-        axes[1][1].set_title("{} - Precision/Recall (Train)".format(_sym))
-        plot_precision_recall_curve(clf, X_train, y_train, ax=axes[1][1])
+        n_classes = np.unique(y_test).shape[0]
+        if hasattr(clf, 'predict_proba'):
+            y_train_proba = clf.predict_proba(X_train)
+            axes[1][0].set_title("{} - ROC (Train)".format(_sym))
+            plot_roc(y_train, y_train_proba, n_classes, ax=axes[1][0])
+            axes[1][1].set_title("{} - Precision/Recall (Train)".format(_sym))
+            plot_precision_recall(y_train, y_train_proba, ax=axes[1][1])
         axes[1][2].set_title("{} - Confusion matrix (Train)".format(_sym))
         plot_confusion_matrix(clf, X_train, y_train, cmap='Blues', ax=axes[1][2])
-
-        axes[2][0].set_title("{} - ROC (Test)".format(_sym))
-        plot_roc_curve(clf, X_test, y_test, ax=axes[2][0])
-        axes[2][1].set_title("{} - Precision/Recall (Test)".format(_sym))
-        plot_precision_recall_curve(clf, X_train, y_train, ax=axes[2][1])
+        if hasattr(clf, 'predict_proba'):
+            y_test_proba = clf.predict_proba(X_test)
+            axes[2][0].set_title("{} - ROC (Test)".format(_sym))
+            plot_roc(y_test, y_test_proba, ax=axes[2][0])
+            axes[2][1].set_title("{} - Precision/Recall (Test)".format(_sym))
+            plot_precision_recall(y_test, y_test_proba, ax=axes[2][1])
         axes[2][2].set_title("{} - Confusion matrix (Test)".format(_sym))
         plot_confusion_matrix(clf, X_test, y_test, cmap='Oranges', ax=axes[2][2])
 
@@ -131,28 +135,28 @@ def build_model(dataset, pipeline, experiment, param_grid=None, cv=5, scoring='a
             'training_set': {
                 'features':X_train.shape[1],
                 'records':X_train.shape[0],
-                'class_distribution': get_class_distribution(y_train),
+                #'class_distribution': get_class_distribution(y_train),
                 'classification_report': train_report,
                 'accuracy': accuracy_score(y_train, predictions1),
                 'mse': mean_squared_error(y_train, predictions1),
-                'precision': precision_score(y_train, predictions1),
-                'recall': recall_score(y_train, predictions1),
-                'f1': f1_score(y_train, predictions1),
-                'y_true':[y for y in y_train],
-                'y_pred':[y for y in predictions1]
+                'precision': precision_score(y_train, predictions1, average='micro'),
+                'recall': recall_score(y_train, predictions1, average='micro'),
+                'f1': f1_score(y_train, predictions1, average='micro'),
+                #'y_true':[y for y in y_train],
+                #'y_pred':[y for y in predictions1]
             },
             'test_set': {
                 'features':X_test.shape[1],
                 'records':X_test.shape[0],
-                'class_distribution':get_class_distribution(y_test),
+                #'class_distribution':get_class_distribution(y_test),
                 'classification_report': test_report,
                 'accuracy': accuracy_score(y_test, predictions2),
-                'precision': precision_score(y_test, predictions2),
+                'precision': precision_score(y_test, predictions2, average='micro'),
                 'mse': mean_squared_error(y_test, predictions2),
-                'recall': recall_score(y_test, predictions2),
-                'f1': f1_score(y_test, predictions2),
-                'y_true': [y for y in y_test],
-                'y_pred': [y for y in predictions2]
+                'recall': recall_score(y_test, predictions2, average='micro'),
+                'f1': f1_score(y_test, predictions2, average='micro'),
+                #'y_true': [y for y in y_test],
+                #'y_pred': [y for y in predictions2]
             }
         }
         # If the classifier has a feature_importances attribute, save it in the report
