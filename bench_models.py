@@ -9,8 +9,8 @@ PIPELINES = [
     #'adaboost_decisiontree', # We already have xgboost
     'plain_xgboost',
     #'plain_dart_xgboost', # Much slower, no improvements
-    'pca_kbest_xgboost',
-    'pca_xgboost',
+    # 'pca_kbest_xgboost', # No improvement w.r.t xgboost
+    # 'pca_xgboost', # No improvement w.r.t xgboost
 
     # Bagging
     'bagging_decisiontree',
@@ -37,47 +37,48 @@ DATASETS = [
 
 TARGETS = [
     'class',
-    'binary',
-    'bin',
-    'binary_bin'
+    #'binary',
+    #'bin',
+    #'binary_bin'
 ]
 
 def bench_models(benchmark_name):
     os.makedirs('./benchmarks/{}/'.format(benchmark_name), exist_ok=True)
-    for ds in DATASETS:
-        result = {}
-        for pipe in PIPELINES:
-            experiment = build_model(ds, pipe, benchmark_name)
-            data = {}
-            for _sym, results in experiment.items():
-                with open(results['report'], 'r') as f:
-                    report = json.load(f)
-                if not report:
-                    continue
-                train_accuracy = report['training_set']['accuracy']
-                train_precision = report['training_set']['precision']
-                train_mse = report['training_set']['mse']
+    for t in TARGETS:
+        for ds in DATASETS:
+            result = {}
+            for pipe in PIPELINES:
+                experiment = build_model(ds, pipe, benchmark_name)
+                data = {}
+                for _sym, results in experiment.items():
+                    with open(results['report'], 'r') as f:
+                        report = json.load(f)
+                    if not report:
+                        continue
+                    train_accuracy = report['training_set']['accuracy']
+                    train_precision = report['training_set']['precision']
+                    train_mse = report['training_set']['mse']
 
-                test_accuracy = report['test_set']['accuracy']
-                test_precision = report['test_set']['precision']
-                test_mse = report['test_set']['mse']
+                    test_accuracy = report['test_set']['accuracy']
+                    test_precision = report['test_set']['precision']
+                    test_mse = report['test_set']['mse']
 
 
-                data[_sym] = [train_accuracy, test_accuracy, train_precision, test_precision, train_mse,  test_mse]
-            pipe_df = pd.DataFrame.from_dict(data, orient='index', columns=['train_accuracy', 'test_accuracy','train_precision','test_precision','train_mse','test_mse'])
+                    data[_sym] = [train_accuracy, test_accuracy, train_precision, test_precision, train_mse,  test_mse]
+                pipe_df = pd.DataFrame.from_dict(data, orient='index', columns=['train_accuracy', 'test_accuracy','train_precision','test_precision','train_mse','test_mse'])
 
-            pipe_df.to_csv('./benchmarks/{}/{}__{}.csv'.format(benchmark_name, ds, pipe), sep=',',
+                pipe_df.to_csv('./benchmarks/{}/{}__{}_{}.csv'.format(benchmark_name, ds, pipe, t), sep=',',
+                               encoding='utf-8', index=True,
+                               index_label='Symbol')
+                pipe_df.to_excel('./benchmarks/{}/{}__{}_{}.xlsx'.format(benchmark_name, ds, pipe, t),
+                                 index=True, index_label='Symbol')
+                result[pipe] = pipe_df
+            stacked = pd.concat(result, axis=1)
+            stacked.to_csv('./benchmarks/{}/{}_{}_merged.csv'.format(benchmark_name, ds, t), sep=',',
                            encoding='utf-8', index=True,
                            index_label='Symbol')
-            pipe_df.to_excel('./benchmarks/{}/{}__{}.xlsx'.format(benchmark_name, ds, pipe),
+            stacked.to_excel('./benchmarks/{}/{}_{}_merged.xlsx'.format(benchmark_name, ds, t),
                              index=True, index_label='Symbol')
-            result[pipe] = pipe_df
-        stacked = pd.concat(result, axis=1)
-        stacked.to_csv('./benchmarks/{}/{}_merged.csv'.format(benchmark_name, ds), sep=',',
-                       encoding='utf-8', index=True,
-                       index_label='Symbol')
-        stacked.to_excel('./benchmarks/{}/{}_merged.xlsx'.format(benchmark_name, ds),
-                         index=True, index_label='Symbol')
 
 if __name__ == '__main__':
     np.random.seed(0)

@@ -10,7 +10,7 @@ TARGET='binary_bin'
 PARAMETER_GRID = {
     'n_estimators': [10], # Number of estimators to use in ensemble
     'max_samples': [0.5, 0.8, 1.0], # Number of samples per estimator in the ensemble
-    'max_features': [ 0.1, 0.2, 0.5, 1.0], # Number of features per estimator in the ensemble
+    'max_features': [0.2, 0.8, 1.0], # Number of features per estimator in the ensemble
     'base_estimator__c__criterion': ['gini'],#, 'entropy'],
     'base_estimator__c__splitter': ['random', 'best'], # 'best',
     'base_estimator__c__max_depth': [1, 2, 4],#None,
