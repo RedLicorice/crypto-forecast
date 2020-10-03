@@ -51,7 +51,7 @@ def build(source_index, dest_index, W=10):
         improved_df = pd.concat([history_facet, trend_facet, volatility_facet, volume_facet, chain_facet],
                                 axis='columns', verify_integrity=True, sort=True, join='inner')
         # Drop the first 30 rows
-        improved_df = improved_df[30:]
+        #improved_df = improved_df[30:]
 
        # Add symbol to index
         feature_groups = {
@@ -62,5 +62,5 @@ def build(source_index, dest_index, W=10):
             'chain': [c for c in chain_facet.columns],
         }
         logger.info('Saving {}'.format(_sym))
-        save_symbol_dataset(dest_index, _sym, improved_df, feature_groups=feature_groups)
+        save_symbol_dataset(dest_index, _sym, improved_df, feature_groups=feature_groups, target=_target)
         logger.info('Saved {}'.format(_sym))

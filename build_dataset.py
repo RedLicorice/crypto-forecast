@@ -37,4 +37,4 @@ if __name__ == '__main__':
         exit(0)
 
 
-    p.build(args.source, args.dest, W=args.window)
+    p.build(args.source, args.dest, W=int(args.window))

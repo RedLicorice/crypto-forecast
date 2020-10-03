@@ -190,5 +190,5 @@ def build(source_index, dest_index, W=10):
         with pd.option_context('mode.use_inf_as_na', True): # Set option temporarily
             improved_df = improved_df.dropna(axis='columns', how='all')
         logger.info('Saving {}'.format(_sym))
-        save_symbol_dataset(dest_index, _sym, improved_df)
+        save_symbol_dataset(dest_index, _sym, improved_df, target=_target)
         logger.info('Saved {}'.format(_sym))

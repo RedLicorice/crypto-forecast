@@ -13,11 +13,7 @@ def load_preprocessed(source):
     return index
 
 def load_dataset(dataset, return_index=False, index_name='index'):
-    if '.' in dataset:
-        split = dataset.split('.')
-        dataset = split[0]
-        index_name = split[1]
-    index_path = './data/datasets/{}/{}.json'.format(dataset, index_name)
+    index_path = './data/datasets/{}/index.json'.format(dataset, index_name)
     index = {}
     with open(index_path, 'r') as f:
         index = json.load(f)
@@ -29,17 +25,12 @@ def load_dataset(dataset, return_index=False, index_name='index'):
 
 def save_symbol_dataset(dataset, symbol, df, **kwargs):
     # Split index if dataset contains it
-    index_name = 'index'
-    if '.' in dataset:
-        path = dataset.split('.')
-        dataset = path[0]
-        index_name = path[1]
     # Compose file paths
-    features_csv_path = 'data/datasets/{}/csv/{}_{}.csv'.format(dataset, index_name, symbol.lower())
-    features_xls_path = 'data/datasets/{}/excel/{}_{}.xlsx'.format(dataset, index_name, symbol.lower())
+    features_csv_path = 'data/datasets/{}/csv/{}.csv'.format(dataset, symbol.lower())
+    features_xls_path = 'data/datasets/{}/excel/{}.xlsx'.format(dataset, symbol.lower())
     target_csv_path = 'data/datasets/{}/csv/{}_target.csv'.format(dataset, symbol.lower())
     target_xls_path = 'data/datasets/{}/excel/{}_target.xlsx'.format(dataset, symbol.lower())
-    index_path = 'data/datasets/{}/{}.json'.format(dataset, index_name)
+    index_path = 'data/datasets/{}/index.json'.format(dataset)
     # Make sure directories exist
     for p in [features_csv_path,features_xls_path,target_csv_path,target_xls_path,index_path]:
         dir = os.path.dirname(p)

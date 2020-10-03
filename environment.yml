@@ -23,3 +23,4 @@ dependencies:
     - enlighten
     - openpyxl
     - scikit-plot
+    - sqlalchemy

@@ -19,16 +19,10 @@ def build(source_index, dest_index, W=10):
         atsa_df = pd.concat([lagged_ohlc, ta], axis='columns', verify_integrity=True, sort=True, join='inner')
 
         # Drop the first 30 rows
-        atsa_df = atsa_df[30:]
+        #atsa_df = atsa_df[30:]
 
-        # Save the dataframe
-        atsa_df.to_csv('data/datasets/all_merged/csv/{}_atsa.csv'.format(_sym.lower()), sep=',',
-                           encoding='utf-8', index=True,
-                           index_label='Date')
-        atsa_df.to_excel('data/datasets/all_merged/excel/{}_atsa.xlsx'.format(_sym.lower()),
-                             index=True, index_label='Date')
         # decompose_dataframe_features('all_merged', _sym+'_improved', unlagged_df)
         # Add symbol to index
         logger.info('Saving {}'.format(_sym))
-        save_symbol_dataset(dest_index, _sym, atsa_df)
+        save_symbol_dataset(dest_index, _sym, atsa_df, target=_target)
         logger.info('Saved {}'.format(_sym))
