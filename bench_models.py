@@ -13,25 +13,25 @@ DBSession = None
 PIPELINES = [
     # Boosting
     #'adaboost_decisiontree', # We already have xgboost
-    # 'plain_xgboost',
+    'plain_xgboost',
     #'plain_dart_xgboost', # Much slower, no improvements
     # 'pca_kbest_xgboost', # No improvement w.r.t xgboost
     # 'pca_xgboost', # No improvement w.r.t xgboost
 
     # Bagging
     #'bagging_decisiontree', # Gets stuck
-    # 'bagging_linear_svc',
-    # 'bagging_poly_svc',
-    # 'bagging_rbf_svc',
+    'bagging_linear_svc',
+    'bagging_poly_svc',
+    'bagging_rbf_svc',
 
     # Plain ML
     'plain_knn',
     'plain_linear_svc',
-    # 'plain_poly_svc',
-    # 'plain_rbf_svc',
-    # 'plain_mlp',
-    # 'plain_mnb',
-    # 'plain_randomforest',
+    'plain_poly_svc',
+    'plain_rbf_svc',
+    'plain_mlp',
+    'plain_mnb',
+    'plain_randomforest',
     #'smote_undersampler_svc'
 ]
 
@@ -43,9 +43,9 @@ DATASETS = [
 
 TARGETS = [
     'class',
-    #'binary',
-    #'bin',
-    #'binary_bin'
+    'binary',
+    'bin',
+    'binary_bin'
 ]
 
 def bench_models(benchmark_name):
