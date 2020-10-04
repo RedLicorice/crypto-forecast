@@ -20,7 +20,7 @@ PARAMETER_GRID = {
     'c__reg_alpha': [0], # L1 regularization term on weights. Increasing this value will make model more conservative.
     'c__reg_lambda': [1], # L2 regularization term on weights. Increasing this value will make model more conservative.
     'c__learning_rate': [0.001, 0.005], # 0.3 Step size shrinkage used in update to prevents overfitting. Shrinks the feature weights to make the boosting process more conservative.
-    'c__scale_pos_weight': [1] # should be negative_samples_count / positive_samples_count
+    #'c__scale_pos_weight': [1] # should be negative_samples_count / positive_samples_count
 }
 
 estimator = Pipeline([

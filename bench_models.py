@@ -53,7 +53,7 @@ def bench_models(benchmark_name):
     jobs = session.query(Job).filter(Job.status == False).all()
     for j in jobs:
         logger.info("Running experiment: {} {} {} {}".format(j.id, j.dataset, j.pipeline, j.target, benchmark_name))
-        experiment = build_model(j.dataset, j.pipeline, benchmark_name, scoring='precision', use_target=j.target)
+        experiment = build_model(j.dataset, j.pipeline, "{}_{}".format(benchmark_name, j.target), scoring='precision', use_target=j.target)
         data = {}
         for _sym, results in experiment.items():
             with open(results['report'], 'r') as f:
