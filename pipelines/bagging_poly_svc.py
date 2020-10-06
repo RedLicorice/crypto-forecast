@@ -1,7 +1,7 @@
 from imblearn.pipeline import Pipeline
 from sklearn.ensemble import BaggingClassifier
 from sklearn.svm import SVC
-from sklearn.preprocessing import RobustScaler
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.impute import SimpleImputer
 
 
@@ -21,7 +21,7 @@ PARAMETER_GRID = {
 
 pipeline = Pipeline([
     ('i', SimpleImputer()),  # Replace nan's with the median value between previous and next observation
-    ('s', RobustScaler()),
+    ('s', MinMaxScaler()),
     ('c', SVC()),
 ])
 

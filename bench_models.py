@@ -48,12 +48,12 @@ TARGETS = [
     'binary_bin'
 ]
 
-def bench_models(benchmark_name):
+def bench_models(benchmark_name, n_jobs='auto'):
     session = DBSession()
     jobs = session.query(Job).filter(Job.status == False).all()
     for j in jobs:
         logger.info("Running experiment: {} {} {} {}".format(j.id, j.dataset, j.pipeline, j.target, benchmark_name))
-        experiment = build_model(j.dataset, j.pipeline, "{}_{}".format(benchmark_name, j.target), scoring='precision', use_target=j.target)
+        experiment = build_model(j.dataset, j.pipeline, "{}_{}".format(benchmark_name, j.target), scoring='precision', use_target=j.target, n_jobs=n_jobs)
         data = {}
         for _sym, results in experiment.items():
             with open(results['report'], 'r') as f:
@@ -118,6 +118,8 @@ if __name__ == '__main__':
         description='Build and tune models, collect results')
     parser.add_argument('-n', dest='name', nargs='?', default='benchmark',
                         help="Name for the current benchmark")  # nargs='?', default='all_merged.index_improved',
+    parser.add_argument('-j', dest='jobs', nargs='?', default='auto',
+                        help="Name for the current benchmark")
     args = parser.parse_args()
     os.makedirs('./benchmarks/{}/'.format(args.name), exist_ok=True)
     db_file = './benchmarks/{}/status.db'.format(args.name)
@@ -127,4 +129,4 @@ if __name__ == '__main__':
     DBSession = scoped_session(session_factory)
     if migrate(db_file): # Create status database and tables
         make_jobs()
-    bench_models(args.name)
+    bench_models(args.name, n_jobs = int(args.jobs) if args.jobs.isnumeric() else 'auto')
