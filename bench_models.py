@@ -53,22 +53,8 @@ def bench_models(benchmark_name, n_jobs='auto'):
     jobs = session.query(Job).filter(Job.status == False).all()
     for j in jobs:
         logger.info("Running experiment: {} {} {} {}".format(j.id, j.dataset, j.pipeline, j.target, benchmark_name))
-        experiment = build_model(j.dataset, j.pipeline, "{}_{}".format(benchmark_name, j.target), scoring='precision', use_target=j.target, n_jobs=n_jobs)
-        data = {}
-        for _sym, results in experiment.items():
-            with open(results['report'], 'r') as f:
-                report = json.load(f)
-            if not report:
-                continue
-            train_accuracy = report['training_set']['accuracy']
-            train_precision = report['training_set']['precision']
-            train_mse = report['training_set']['mse']
-            test_accuracy = report['test_set']['accuracy']
-            test_precision = report['test_set']['precision']
-            test_mse = report['test_set']['mse']
-            data[_sym] = [train_accuracy, test_accuracy, train_precision, test_precision, train_mse,  test_mse]
-        pipe_df = pd.DataFrame.from_dict(data, orient='index', columns=['train_accuracy', 'test_accuracy','train_precision','test_precision','train_mse','test_mse'])
-
+        reports = build_model(j.dataset, j.pipeline, "{}_{}".format(benchmark_name, j.target), scoring='precision', use_target=j.target, n_jobs=n_jobs)
+        pipe_df = reports.get_metrics_df()
         pipe_df.to_csv('./benchmarks/{}/{}_{}_{}.csv'.format(benchmark_name, j.dataset, j.pipeline, j.target), sep=',',
                        encoding='utf-8', index=True,
                        index_label='Symbol')
