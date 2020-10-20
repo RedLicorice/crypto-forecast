@@ -134,6 +134,7 @@ benchmarks/
 old/reports/
 old/plots/
 old/reports/
+equities/
 *.csv
 *.png
 *.zip

@@ -12,8 +12,8 @@ def load_preprocessed(source):
         index = json.load(f)
     return index
 
-def load_dataset(dataset, return_index=False, index_name='index'):
-    index_path = './data/datasets/{}/index.json'.format(dataset, index_name)
+def load_dataset(dataset, return_index=False):
+    index_path = './data/datasets/{}/index.json'.format(dataset)
     index = {}
     with open(index_path, 'r') as f:
         index = json.load(f)
@@ -22,6 +22,13 @@ def load_dataset(dataset, return_index=False, index_name='index'):
     return {sym: (pd.read_csv(files['csv'], sep=',', encoding='utf-8', index_col='Date', parse_dates=True),
                 pd.read_csv(files['target_csv'], sep=',', encoding='utf-8', index_col='Date', parse_dates=True))
             for sym, files in index.items()}
+
+def load_symbol(dataset, symbol, target='class'):
+    index = load_dataset(dataset, return_index=True)
+    data = index[symbol]
+    features = pd.read_csv(data['csv'], sep=',', encoding='utf-8', index_col='Date', parse_dates=True)
+    targets = pd.read_csv(data['target_csv'], sep=',', encoding='utf-8', index_col='Date', parse_dates=True)
+    return features, targets.loc[features.index][target], targets.loc[features.index].close
 
 def save_symbol_dataset(dataset, symbol, df, **kwargs):
     # Split index if dataset contains it

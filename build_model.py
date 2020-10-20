@@ -71,7 +71,7 @@ def build_model(dataset, pipeline, experiment, param_grid=None, cv=5, scoring='a
 
             # Drop columns whose values are all NaN, as well as rows with ANY nan value, then
             # replace infinity values with nan so that they can later be imputed to a finite value
-            features = features.dropna(axis='columns', how='all').dropna().replace([np.inf, -np.inf], np.nan)
+            features = features.dropna(axis='columns', how='all').replace([np.inf, -np.inf], np.nan)
             target = targets.loc[features.index][current_target]
 
             X_train, X_test, y_train, y_test = train_test_split(features.values, target.values, shuffle=False, test_size=test_size)

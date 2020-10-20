@@ -7,6 +7,7 @@ import os
 
 Base = declarative_base()
 
+
 class Job(Base):
 	__tablename__ = 'jobs'
 	id = Column(Integer, primary_key=True)
