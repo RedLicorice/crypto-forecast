@@ -1,23 +1,9 @@
 from lib.log import logger
 from lib.dataset import builder, load_dataset, save_symbol_dataset
 from lib.dataset.utils import convergence_between_series
-from scipy.interpolate import UnivariateSpline
 import numpy as np
 import pandas as pd
 
-
-def get_spline(y, nu, degree=3):
-    # The number of data points must be larger than the spline degree k.
-    result = []
-    for i in range(y.shape[0]):
-        if i < degree:
-            result.append(np.nan)
-            continue
-        x_space = np.linspace(0, i, i + 1)
-        _y = y.iloc[0:i + 1]
-        spl = UnivariateSpline(x_space, _y, s=0, k=degree)
-        result.append(spl(i, nu=nu))
-    return result
 
 def build(source_index, dest_index, W=10):
     _dataset = load_dataset(source_index, return_index=True)
@@ -206,15 +192,15 @@ def build(source_index, dest_index, W=10):
         # _splines['low_spl'] = get_spline(ohlc.low, 0)
         # _splines['close_spl'] = get_spline(ohlc.close, 0)
 
-        _splines['open_spl_d1'] = get_spline(ohlc.open, 1)
-        _splines['high_spl_d1'] = get_spline(ohlc.high, 1)
-        _splines['low_spl_d1'] = get_spline(ohlc.low, 1)
-        _splines['close_spl_d1'] = get_spline(ohlc.close, 1)
+        _splines['open_spl_d1'] = builder.get_spline(ohlc.open, 1)
+        _splines['high_spl_d1'] = builder.get_spline(ohlc.high, 1)
+        _splines['low_spl_d1'] = builder.get_spline(ohlc.low, 1)
+        _splines['close_spl_d1'] = builder.get_spline(ohlc.close, 1)
 
-        _splines['open_spl_d2'] = get_spline(ohlc.open, 2)
-        _splines['high_spl_d2'] = get_spline(ohlc.high, 2)
-        _splines['low_spl_d2'] = get_spline(ohlc.low, 2)
-        _splines['close_spl_d2'] = get_spline(ohlc.close, 2)
+        _splines['open_spl_d2'] = builder.get_spline(ohlc.open, 2)
+        _splines['high_spl_d2'] = builder.get_spline(ohlc.high, 2)
+        _splines['low_spl_d2'] = builder.get_spline(ohlc.low, 2)
+        _splines['close_spl_d2'] = builder.get_spline(ohlc.close, 2)
 
         _patterns = builder.get_talib_patterns(ohlcv)
         _new_features = pd.DataFrame(index=ohlcv.index)
