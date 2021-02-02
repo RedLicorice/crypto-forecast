@@ -3,15 +3,18 @@ from lib.dataset import builder, load_dataset, save_symbol_dataset
 from lib.dataset.utils import convergence_between_series
 import numpy as np
 import pandas as pd
-
+from lib.dataset.db_features import connect, add_feature, get_features
 
 def build(source_index, dest_index, W=10):
     _dataset = load_dataset(source_index, return_index=True)
-
+    sessionFactory = connect('test_features')
     for _sym, entry in _dataset.items():
         _df = pd.read_csv(entry['csv'], sep=',', encoding='utf-8', index_col='Date', parse_dates=True)
         _target = pd.read_csv(entry['target_csv'], sep=',', encoding='utf-8', index_col='Date', parse_dates=True)
         ohlcv = _df[entry['features']['ohlcv']]
+
+        ohlcv_d = {d:_df[entry['features']['ohlcv_{}d'.format(d)]] for d in [3, 7, 30]}
+        ta_d = {d:_df[entry['features']['ta_{}d'.format(d)]] for d in [3, 7, 30]}
 
         ta = _df[entry['features']['ta']]
         cm = _df[entry['features']['cm']]
@@ -30,9 +33,9 @@ def build(source_index, dest_index, W=10):
             # isstotntv is total number of coins mined in the time interval
             # splycur is total number of coins mined (all time)
             total_mined = cm.isstotntv.rolling(365, min_periods=7).sum() # total mined in a year
-            cm_picked['isstot365_isstot1_pct'] = (total_mined / cm.isstotntv).pct_change()
+            cm_picked['isstot365_isstot1_pct'] = (cm.isstotntv / total_mined).pct_change()
         if 'splycur' in cm.columns and 'isstotntv' in cm.columns:
-            cm_picked['splycur_isstot1_pct'] = (cm.splycur / cm.isstotntv).pct_change()
+            cm_picked['splycur_isstot1_pct'] = (cm.isstotntv / cm.splycur).pct_change()
         if 'hashrate' in cm.columns:
             #cm_picked['hashrate_mean3_pct'] = cm.hashrate.rolling(3).mean().pct_change()
             #cm_picked['hashrate_mean7_pct'] = cm.hashrate.rolling(7).mean().pct_change()
@@ -45,7 +48,7 @@ def build(source_index, dest_index, W=10):
             cm_picked['feetotntv_pct'] = cm.feetotntv.pct_change()
         if 'txtfrcount' in cm.columns:
             cm_picked['txtfrcount_pct'] = cm.txtfrcount.pct_change()
-            cm_picked['txtfrcount_volume'] = cm.txtfrcount.pct_change()
+            #cm_picked['txtfrcount_volume'] = cm.txtfrcount.pct_change()
         if 'vtydayret30d' in cm.columns:
             cm_picked['vtydayret30d'] = cm.vtydayret30d
         if 'isscontpctann' in cm.columns:
@@ -210,13 +213,26 @@ def build(source_index, dest_index, W=10):
         _new_features['close_volatility_7d'] = ohlcv.close.pct_change().rolling(7).std(ddof=0)
         _new_features['close_volatility_30d'] = ohlcv.close.pct_change().rolling(30).std(ddof=0)
         #
-        _new_features['open_close_dist_pct'] = (ohlcv.open - ohlcv.close).pct_change()
-        _new_features['high_close_dist_pct'] = (ohlcv.high - ohlcv.close).pct_change()
-        _new_features['low_close_dist_pct'] = (ohlcv.low - ohlcv.close).pct_change()
-        _new_features['high_low_dist_pct'] = (ohlcv.high - ohlcv.low).pct_change()
+        # Candle body size variation, for example
+        _new_features['close_open_pct'] = (ohlcv.close - ohlcv.open).pct_change() # Change in body of the candle (> 0 if candle is green)
+        _new_features['high_close_dist_pct'] = (ohlcv.high - ohlcv.close).pct_change() # Change in wick size of the candle, shorter wick should be bullish
+        _new_features['low_close_dist_pct'] = (ohlcv.close - ohlcv.low).pct_change() # Change in shadow size of the candle, this increasing would indicate support (maybe a bounce)
+        _new_features['high_low_dist_pct'] = (ohlcv.high - ohlcv.low).pct_change() # Change in total candle size, smaller candles stands for low volatility
 
+        for d in [3, 7, 30]:
+            ohlcv_d[d].columns = ['close', 'high', 'low', 'open', 'volume']
+            _new_features['close_open_pct_d{}'.format(d)] = (ohlcv_d[d].close - ohlcv_d[d].open).pct_change()
+            _new_features['high_close_dist_pct_d{}'.format(d)] = (ohlcv_d[d].high - ohlcv_d[d].close).pct_change()
+            _new_features['low_close_dist_pct_d{}'.format(d)] = (ohlcv_d[d].close - ohlcv_d[d].low).pct_change()
+            _new_features['high_low_dist_pct_d{}'.format(d)] = (ohlcv_d[d].high - ohlcv_d[d].low).pct_change()
+
+
+        _ta_windowed_features = pd.concat([v.rename(columns={c:'{}_ta{}d'.format(c, d) for c in v.columns}) for d,v in ta_d.items()], axis=1)
         # Add lagged features to the dataframe
-        improved_df = pd.concat([_new_features, _splines, lagged_ohlc_pct, cm_picked, ta_picked], axis='columns', verify_integrity=True, sort=True, join='inner')
+        ta.columns = ['{}_ta1d'.format(c) for c in ta.columns]
+        feature_groups = [_new_features, _splines, lagged_ohlc_pct, cm_picked, ta_picked, _ta_windowed_features, ta]
+
+        improved_df = pd.concat(feature_groups, axis='columns', verify_integrity=True, sort=True, join='inner')
 
         # Drop the first 30 rows
         improved_df = improved_df[30:]
@@ -224,5 +240,10 @@ def build(source_index, dest_index, W=10):
         with pd.option_context('mode.use_inf_as_na', True): # Set option temporarily
             improved_df = improved_df.dropna(axis='columns', how='all')
         logger.info('Saving {}'.format(_sym))
-        save_symbol_dataset(dest_index, _sym, improved_df, target=_target)
+        for c in improved_df.columns:
+            # session, group, symbol, name, series
+            s = sessionFactory()
+            add_feature(s, 'dbfeaturetest', _sym, c, improved_df[c])
+            s.commit()
+        #save_symbol_dataset(dest_index, _sym, improved_df, target=_target)
         logger.info('Saved {}'.format(_sym))

@@ -37,9 +37,9 @@ def build(source_index, dest_index, W=10):
             # isstotntv is total number of coins mined in the time interval
             # splycur is total number of coins mined (all time)
             total_mined = cm.isstotntv.rolling(365, min_periods=7).sum() # total mined in a year
-            cm_picked['isstot365_isstot1_pct'] = (total_mined / cm.isstotntv).pct_change()
+            cm_picked['isstot1_isstot365_pct'] = (cm.isstotntv / total_mined).pct_change()
         if 'splycur' in cm.columns and 'isstotntv' in cm.columns:
-            cm_picked['splycur_isstot1_pct'] = (cm.splycur / cm.isstotntv).pct_change()
+            cm_picked['splycur_isstot1_pct'] = (cm.isstotntv / cm.splycur).pct_change()
         if 'hashrate' in cm.columns:
             #cm_picked['hashrate_mean3_pct'] = cm.hashrate.rolling(3).mean().pct_change()
             #cm_picked['hashrate_mean7_pct'] = cm.hashrate.rolling(7).mean().pct_change()

@@ -14,12 +14,12 @@ PIPELINES = [
     # Boosting
     #'adaboost_decisiontree', # We already have xgboost
     'plain_xgboost',
-    #'plain_dart_xgboost', # Much slower, no improvements
+    # 'plain_dart_xgboost', # Much slower, no improvements
     # 'pca_kbest_xgboost', # No improvement w.r.t xgboost
     # 'pca_xgboost', # No improvement w.r.t xgboost
 
     # Bagging
-    #'bagging_decisiontree', # Gets stuck
+    #'bagging_decisiontree', # Gets stuck - too much time to complete
     'bagging_linear_svc',
     'bagging_poly_svc',
     'bagging_rbf_svc',
@@ -36,8 +36,11 @@ PIPELINES = [
 ]
 
 DATASETS = [
-    'improved',
     'atsa',
+    'improved',
+    'timedspline',
+    'decomposed',
+    'faceted'
     # 'all_merged.index_faceted'
 ]
 

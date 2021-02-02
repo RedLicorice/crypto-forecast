@@ -1,5 +1,5 @@
 from lib.dataset import load_symbol
-from lib.trading.models import migrate, Base, OrderType, Signal
+from lib.trading.models import migrate, Base, OrderType, SignalType
 from lib.trading.exchange import Exchange
 from sqlalchemy import create_engine, and_
 from sqlalchemy.orm import sessionmaker, scoped_session
@@ -48,11 +48,11 @@ def check_signal(signal, close, last_close):
         return True
     labels = ["SELL","HOLD","BUY"]
     last_percent = (close - last_close) / last_close
-    if last_percent >= 0.01 and signal != Signal.BUY:
+    if last_percent >= 0.01 and signal != SignalType.BUY:
         raise Exception("Wrong signal, expected BUY got {} PCT: {}".format(labels[int(signal)], last_percent))
-    elif last_percent <= -0.01 and signal != Signal.SELL:
+    elif last_percent <= -0.01 and signal != SignalType.SELL:
         raise Exception("Wrong signal, expected SELL got {} PCT: {}".format(labels[int(signal)], last_percent))
-    elif last_percent >= -0.01 and last_percent < 0.01 and signal != Signal.HOLD:
+    elif last_percent >= -0.01 and last_percent < 0.01 and signal != SignalType.HOLD:
         raise Exception("Wrong signal, expected HOLD got {} PCT: {}".format(labels[int(signal)], last_percent))
 
 def trading_day(day, symbols, signals, order_size=0.1, history=None):
@@ -69,18 +69,18 @@ def trading_day(day, symbols, signals, order_size=0.1, history=None):
         close = signals['{}_close'.format(s)].iloc[0]
         label = signals['{}_label'.format(s)].iloc[0]
 
-        if np.isnan(signal): # If signal is nan
+        if np.isnan(signal) or np.isnan(close): # If signal is nan
             continue
-        if history is not None and not history.empty:
-            signal_history = history['{}'.format(s)]
-            close_history = history['{}_close'.format(s)]
-            label_history = history['{}_label'.format(s)]
-            precision = precision_score(label_history.values, signal_history.values, average='micro', zero_division=True)
+        # if history is not None and not history.empty:
+        #     signal_history = history['{}'.format(s)]
+        #     close_history = history['{}_close'.format(s)]
+        #     label_history = history['{}_label'.format(s)]
+            # precision = precision_score(label_history.values, signal_history.values, average='micro', zero_division=True)
             # Fit an spline on available historical data, needs at least 7 days of activity
-            history_length = close_history.shape[0]
-            if history_length > 0:
+            #history_length = close_history.shape[0]
+            #if history_length > 0:
                 # Check last label is correct
-                check_signal(label_history.values[-1], close, close_history.values[-1])
+                #check_signal(label_history.values[-1], close, close_history.values[-1])
                 #--
                 # hist = close_history.copy()
                 # hist.loc[day] = close
@@ -110,11 +110,11 @@ def trading_day(day, symbols, signals, order_size=0.1, history=None):
             # If close meets stop loss, close position
             if o.should_stop(close):
                 logger.info('[Day: {}] Closing long position {} on {} due to stop loss'.format(day, o.id, o.symbol))
-                exchange.close_order(day, asset, o, close)
+                exchange.close_order(day, asset, o, o.stop_loss)
                 continue
 
             # If signal is SELL or position has a 1% profit
-            if signal == Signal.SELL:
+            if signal == SignalType.SELL:
                 logger.info('[Day: {}] Closing long position {} on {} due to SELL signal'.format(day, o.id, o.symbol))
                 exchange.close_order(day, asset, o, close)
                 continue
@@ -125,15 +125,15 @@ def trading_day(day, symbols, signals, order_size=0.1, history=None):
             # If close meets stop loss, close position
             if o.should_stop(close):
                 logger.info('[Day: {}] Closing short position {} on {} due to stop loss'.format(day, o.id, o.symbol))
-                exchange.close_order(day, asset, o, close)
+                exchange.close_order(day, asset, o, o.stop_loss)
                 continue
             # If signal is BUY we're going to lose money, so we close position
-            if signal == Signal.BUY:
+            if signal == SignalType.BUY:
                 logger.info('[Day: {}] Closing short position {} on {} due to BUY signal'.format(day, o.id, o.symbol))
                 exchange.close_order(day, asset, o, close)
                 continue
             # If signal is HOLD and position is old
-            if o.get_age_in_days(day) > 2 and signal == Signal.HOLD:
+            if o.get_age_in_days(day) > 2 and signal == SignalType.HOLD:
                 logger.info('[Day: {}] Closing short position {} on {} due to age'.format(day, o.id, o.symbol))
                 exchange.close_order(day, asset, o, close)
                 continue
@@ -144,12 +144,12 @@ def trading_day(day, symbols, signals, order_size=0.1, history=None):
         # Determine position sizing
         position_coins = asset.position_size(close, order_size)
         # Open the order
-        if signal == Signal.BUY:
+        if signal == SignalType.BUY:
             logger.info('[Day: {}] Opening long position on {} due to BUY signal [Close {}, Price {}, Coins {}]'.format(day, s, close, position_coins*close, position_coins))
             o = exchange.open_order(day, OrderType.LONG, asset, position_coins, close, stop_loss=-0.01) # Stop loss is -1%
             if not o:
                 logger.error("LONG FAILED")
-        elif signal == Signal.SELL:
+        elif signal == SignalType.SELL:
             logger.info('[Day: {}] Opening short position on {} due to BUY signal [Close {}, Price {}, Coins {}]'.format(day, s, close, position_coins*close, position_coins))
             o = exchange.open_order(day, OrderType.SHORT, asset, position_coins, close, stop_loss=0.01) # Stop loss is +1%
             if not o:
@@ -256,32 +256,32 @@ if __name__ == '__main__':
     #                        day='2018-08-01',
     #                        window_size=150
     #                        )
-    beg = '2017-06-01'
-    end = '2017-09-01'
+    beg = '2018-06-01'
+    end = '2018-09-01'
     _symbols = [
-        # 'ADA',
-        # 'BCH',
-        # 'BNB',
+        'ADA',
+        'BCH',
+        'BNB',
         'BTC',
-        # 'BTG',
-        # 'DASH',
-        # 'DOGE',
-        # 'EOS',
-        # 'ETC',
-        # 'ETH',
-        # 'LTC',
-        # 'LINK',
-        # 'NEO',
-        # 'QTUM',
-        # 'TRX',
+        'BTG',
+        'DASH',
+        'DOGE',
+        'EOS',
+        'ETC',
+        'ETH',
+        'LTC',
+        'LINK',
+        'NEO',
+        'QTUM',
+        'TRX',
         # 'USDT',
-        # 'VEN',
-        # 'WAVES',
-        # 'XEM',
-        # 'XMR',
-        # 'XRP',
-        # 'ZEC',
-        # 'ZRX'
+        'VEN',
+        'WAVES',
+        'XEM',
+        'XMR',
+        'XRP',
+        'ZEC',
+        'ZRX'
     ]
     result = trading_period(
         pipeline_name='debug_xgboost',

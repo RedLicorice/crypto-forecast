@@ -99,7 +99,7 @@ class logger:
                 fh = RotatingFileHandler(
                     cls.fileName,
                     mode=cls.fileMode,
-                    maxBytes=5000000
+                    maxBytes=1000000
                 )
                 fh.setFormatter(ffh)
                 fh.setLevel(cls.logLevel)

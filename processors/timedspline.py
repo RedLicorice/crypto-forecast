@@ -1,7 +1,6 @@
 from lib.log import logger
 from lib.dataset import builder, load_dataset, save_symbol_dataset
 from lib.dataset.utils import convergence_between_series
-from scipy.interpolate import UnivariateSpline
 import numpy as np
 import pandas as pd
 
@@ -13,6 +12,9 @@ def build(source_index, dest_index, W=10):
         _df = pd.read_csv(entry['csv'], sep=',', encoding='utf-8', index_col='Date', parse_dates=True)
         _target = pd.read_csv(entry['target_csv'], sep=',', encoding='utf-8', index_col='Date', parse_dates=True)
         ohlcv = _df[entry['features']['ohlcv']]
+
+        ohlcv_d = {d:_df[entry['features']['ohlcv_{}d'.format(d)]] for d in [3, 7, 30]}
+        ta_d = {d:_df[entry['features']['ta_{}d'.format(d)]] for d in [3, 7, 30]}
 
         ta = _df[entry['features']['ta']]
         cm = _df[entry['features']['cm']]
@@ -31,9 +33,9 @@ def build(source_index, dest_index, W=10):
             # isstotntv is total number of coins mined in the time interval
             # splycur is total number of coins mined (all time)
             total_mined = cm.isstotntv.rolling(365, min_periods=7).sum() # total mined in a year
-            cm_picked['isstot365_isstot1_pct'] = (total_mined / cm.isstotntv).pct_change()
+            cm_picked['isstot365_isstot1_pct'] = (cm.isstotntv / total_mined).pct_change()
         if 'splycur' in cm.columns and 'isstotntv' in cm.columns:
-            cm_picked['splycur_isstot1_pct'] = (cm.splycur / cm.isstotntv).pct_change()
+            cm_picked['splycur_isstot1_pct'] = (cm.isstotntv / cm.splycur).pct_change()
         if 'hashrate' in cm.columns:
             #cm_picked['hashrate_mean3_pct'] = cm.hashrate.rolling(3).mean().pct_change()
             #cm_picked['hashrate_mean7_pct'] = cm.hashrate.rolling(7).mean().pct_change()
@@ -46,7 +48,7 @@ def build(source_index, dest_index, W=10):
             cm_picked['feetotntv_pct'] = cm.feetotntv.pct_change()
         if 'txtfrcount' in cm.columns:
             cm_picked['txtfrcount_pct'] = cm.txtfrcount.pct_change()
-            cm_picked['txtfrcount_volume'] = cm.txtfrcount.pct_change()
+            #cm_picked['txtfrcount_volume'] = cm.txtfrcount.pct_change()
         if 'vtydayret30d' in cm.columns:
             cm_picked['vtydayret30d'] = cm.vtydayret30d
         if 'isscontpctann' in cm.columns:
@@ -176,7 +178,7 @@ def build(source_index, dest_index, W=10):
 
         ohlc = ohlcv[['open', 'high', 'low', 'close', 'volume']].pct_change()
         ohlc.columns = ['{}_pct'.format(c) for c in ohlcv.columns]
-        lagged_ohlc = pd.concat([ohlc] + [builder.make_lagged(ohlc, i) for i in range(1, W + 1)], axis='columns',
+        lagged_ohlc_pct = pd.concat([ohlc] + [builder.make_lagged(ohlc, i) for i in range(1, W + 1)], axis='columns',
                                 verify_integrity=True, sort=True, join='inner')
 
         _time = pd.DataFrame(index=ohlcv.index)
@@ -185,29 +187,52 @@ def build(source_index, dest_index, W=10):
 
         ohlc = ohlcv[['open', 'high', 'low', 'close', 'volume']]
         x_space = np.linspace(0, ohlc.index.size, ohlc.index.size)
-        open_spl = UnivariateSpline(x_space, ohlc.open, s=0, k=3)
-        high_spl = UnivariateSpline(x_space, ohlc.high, s=0, k=3)
-        low_spl = UnivariateSpline(x_space, ohlc.low, s=0, k=3)
-        close_spl = UnivariateSpline(x_space, ohlc.close, s=0, k=3)
         _splines = pd.DataFrame(index=ohlcv.index)
 
-        _splines['open_spl'] = open_spl(x_space)
-        _splines['high_spl'] = high_spl(x_space)
-        _splines['low_spl'] = low_spl(x_space)
-        _splines['close_spl'] = close_spl(x_space)
+        # Highly correlated between themselves, no use
+        # _splines['open_spl'] = get_spline(ohlc.open, 0)
+        # _splines['high_spl'] = get_spline(ohlc.high, 0)
+        # _splines['low_spl'] = get_spline(ohlc.low, 0)
+        # _splines['close_spl'] = get_spline(ohlc.close, 0)
 
-        _splines['open_spl_d1'] = open_spl(x_space, nu=1)
-        _splines['high_spl_d1'] = high_spl(x_space, nu=1)
-        _splines['low_spl_d1'] = low_spl(x_space, nu=1)
-        _splines['close_spl_d1'] = close_spl(x_space, nu=1)
+        _splines['open_spl_d1'] = builder.get_spline(ohlc.open, 1)
+        _splines['high_spl_d1'] = builder.get_spline(ohlc.high, 1)
+        _splines['low_spl_d1'] = builder.get_spline(ohlc.low, 1)
+        _splines['close_spl_d1'] = builder.get_spline(ohlc.close, 1)
 
-        _splines['open_spl_d2'] = open_spl(x_space, nu=2)
-        _splines['high_spl_d2'] = high_spl(x_space, nu=2)
-        _splines['low_spl_d2'] = low_spl(x_space, nu=2)
-        _splines['close_spl_d2'] = close_spl(x_space, nu=2)
+        _splines['open_spl_d2'] = builder.get_spline(ohlc.open, 2)
+        _splines['high_spl_d2'] = builder.get_spline(ohlc.high, 2)
+        _splines['low_spl_d2'] = builder.get_spline(ohlc.low, 2)
+        _splines['close_spl_d2'] = builder.get_spline(ohlc.close, 2)
 
+        _patterns = builder.get_talib_patterns(ohlcv)
+        _new_features = pd.DataFrame(index=ohlcv.index)
+        _new_features['candlestick_patterns_mean'] = _patterns.mean(axis=1)
+        _new_features['candlestick_patterns_sum'] = _patterns.sum(axis=1)
+        # WE LIKE THESE TWO!!!!
+        _new_features['close_volatility_7d'] = ohlcv.close.pct_change().rolling(7).std(ddof=0)
+        _new_features['close_volatility_30d'] = ohlcv.close.pct_change().rolling(30).std(ddof=0)
+        #
+        # Candle body size variation, for example
+        _new_features['close_open_pct'] = (ohlcv.close - ohlcv.open).pct_change() # Change in body of the candle (> 0 if candle is green)
+        _new_features['high_close_dist_pct'] = (ohlcv.high - ohlcv.close).pct_change() # Change in wick size of the candle, shorter wick should be bullish
+        _new_features['low_close_dist_pct'] = (ohlcv.close - ohlcv.low).pct_change() # Change in shadow size of the candle, this increasing would indicate support (maybe a bounce)
+        _new_features['high_low_dist_pct'] = (ohlcv.high - ohlcv.low).pct_change() # Change in total candle size, smaller candles stands for low volatility
+
+        for d in [3, 7, 30]:
+            ohlcv_d[d].columns = ['close', 'high', 'low', 'open', 'volume']
+            _new_features['close_open_pct_d{}'.format(d)] = (ohlcv_d[d].close - ohlcv_d[d].open).pct_change()
+            _new_features['high_close_dist_pct_d{}'.format(d)] = (ohlcv_d[d].high - ohlcv_d[d].close).pct_change()
+            _new_features['low_close_dist_pct_d{}'.format(d)] = (ohlcv_d[d].close - ohlcv_d[d].low).pct_change()
+            _new_features['high_low_dist_pct_d{}'.format(d)] = (ohlcv_d[d].high - ohlcv_d[d].low).pct_change()
+
+
+        _ta_windowed_features = pd.concat([v.rename(columns={c:'{}_ta{}d'.format(c, d) for c in v.columns}) for d,v in ta_d.items()], axis=1)
         # Add lagged features to the dataframe
-        improved_df = pd.concat([ohlcv, _time, _splines, lagged_ohlc, cm_picked, ta_picked], axis='columns', verify_integrity=True, sort=True, join='inner')
+        ta.columns = ['{}_ta1d'.format(c) for c in ta.columns]
+        feature_groups = [_new_features, _splines, lagged_ohlc_pct, cm_picked, ta_picked, _ta_windowed_features, ta]
+
+        improved_df = pd.concat(feature_groups, axis='columns', verify_integrity=True, sort=True, join='inner')
 
         # Drop the first 30 rows
         improved_df = improved_df[30:]

@@ -7,7 +7,7 @@ from scikitplot.metrics import plot_roc, plot_precision_recall
 from sklearn.metrics import plot_confusion_matrix, make_scorer, classification_report
 from sklearn.metrics import mean_squared_error, accuracy_score, f1_score, recall_score, precision_score
 from lib.log import logger
-import pickle, json
+import pickle, json, os
 
 
 class ReportCollection:
@@ -20,6 +20,7 @@ class ReportCollection:
         self.index = {}
 
     def save(self):
+        os.makedirs(self.reports_dir, exist_ok=True)
         with open(self.index_path, 'w') as f:
             json.dump(self.index, f, indent=4)
 

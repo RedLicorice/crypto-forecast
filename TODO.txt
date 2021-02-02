@@ -1,0 +1,27 @@
+- Non considerare i prestiti nel grafico di equity
+- Equity totale
+- Confronto tra strategie (modelli) diversi per equity
+- ROC come primo filtro (da determinare quale classe)
+- Tabella esperimenti di classificazione
+
+Report Classificazione in cross validation (Tabelle riassuntive):
+A- dataset (set di feature)
+B- algoritmi di classificazione
+C- tipologia di target (bin e class binari e ternari)
+
+Misure: accuratezza, precisione buy/sell, richiamo buy/sell
+-----------------
+- Per Dataset/Pipeline/Target
+- Recall e Precisione (per BUY/SELL), Accuracy (Media)
+
+Report Trading:
+- Sulle strategie selezionate
+- Confronto equity per strategie diverse
+
+
+
+A- dataset (set di feature)
+B- algoritmi di classificazione
+C- tipologia di target
+
+Misure: accuratezza, precisione buy/sell, richiamo buy/selltabelle riassuntive delle combinazioni AxBxCscelgo le combinazioni più promettenti e plotto equity linesequity separate per crypto e globale2017 e 2018

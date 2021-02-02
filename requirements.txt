@@ -7,3 +7,4 @@ git+https://github.com/g8a9/pyti.git@master
 statsmodels
 imbalanced-learn
 xgboost
+python-docx
